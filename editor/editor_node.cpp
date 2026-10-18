@@ -1105,6 +1105,10 @@ void EditorNode::_notification(int p_what) {
 				EditorToaster::get_singleton()->popup_str(TTR("Recovery Mode is enabled. Editor functionality has been restricted."), EditorToaster::SEVERITY_WARNING);
 			}
 
+			// ここから tutorial_prompt 追加
+			callable_mp(this, &EditorNode::_show_tutorial_prompt).call_deferred();
+			// ここまで
+
 			/* DO NOT LOAD SCENES HERE, WAIT FOR FILE SCANNING AND REIMPORT TO COMPLETE */
 		} break;
 
@@ -6986,6 +6990,51 @@ void EditorNode::_cancel_confirmation() {
 	stop_download_confirmation = false;
 }
 
+
+// ここから tutorial_prompt 追加
+void EditorNode::_show_tutorial_prompt() {
+	if (cmdline_mode || !tutorial_prompt) {
+		return;
+	}
+
+	// ここから tutorial_prompt 追加
+	EditorSettings *editor_settings = EditorSettings::get_singleton();
+	const String tutorial_prompt_answered_key = "tutorial/initial_prompt_answered";
+	const bool tutorial_prompt_answered = editor_settings->has_setting(tutorial_prompt_answered_key) && bool(editor_settings->get_setting(tutorial_prompt_answered_key));
+	if (tutorial_prompt_answered) {
+		return;
+	}
+	// ここまで tutorial_prompt 追加
+
+	if (tutorial_prompt->get_window() != get_last_exclusive_window()) {
+		tutorial_prompt->reparent(get_last_exclusive_window());
+	}
+
+	tutorial_prompt->reset_size();
+	tutorial_prompt->popup_centered();
+}
+
+void EditorNode::_tutorial_prompt_confirmed() {
+
+	// ここから tutorial_prompt 追加
+	EditorSettings::get_singleton()->set_setting("tutorial/initial_prompt_answered", true);
+	EditorSettings::save();
+	// ここまで tutorial_prompt 追加
+
+	show_warning(TTR("Tutorial placeholder: guide pages will be added in the next step."), TTR("Editor Tutorial"));
+}
+
+void EditorNode::_tutorial_prompt_canceled() {
+
+	// ここから tutorial_prompt 追加
+	EditorSettings::get_singleton()->set_setting("tutorial/initial_prompt_answered", true);
+	EditorSettings::save();
+	// ここまで tutorial_prompt 追加
+
+}
+// ここまで tutorial_prompt 追加
+
+
 void EditorNode::_prepare_save_confirmation_popup() {
 	if (save_confirmation->get_window() != get_last_exclusive_window()) {
 		save_confirmation->reparent(get_last_exclusive_window());
@@ -9430,6 +9479,17 @@ EditorNode::EditorNode() {
 	confirmation->connect(SceneStringName(confirmed), callable_mp(this, &EditorNode::_menu_confirm_current));
 	confirmation->connect("custom_action", callable_mp(this, &EditorNode::_discard_changes));
 	confirmation->connect("canceled", callable_mp(this, &EditorNode::_cancel_confirmation));
+	
+	// ここから tutorial_prompt 追加
+	tutorial_prompt = memnew(ConfirmationDialog);
+	gui_base->add_child(tutorial_prompt);
+	tutorial_prompt->set_title(TTR("Editor Tutorial"));
+	tutorial_prompt->set_text(TTR("Would you like to start the editor tutorial?"));
+	tutorial_prompt->set_ok_button_text(TTR("Yes"));
+	tutorial_prompt->get_cancel_button()->set_text(TTR("No"));
+	tutorial_prompt->connect(SceneStringName(confirmed), callable_mp(this, &EditorNode::_tutorial_prompt_confirmed));
+	tutorial_prompt->connect("canceled", callable_mp(this, &EditorNode::_tutorial_prompt_canceled));
+	// ここまで tutorial_prompt 追加
 
 	save_confirmation = memnew(ConfirmationDialog);
 	save_confirmation->add_button(TTRC("Don't Save"), DisplayServer::get_singleton()->get_swap_cancel_ok(), "discard");
