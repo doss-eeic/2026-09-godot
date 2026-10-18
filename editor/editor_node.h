@@ -387,7 +387,9 @@ private:
 	Node *_last_instantiated_scene = nullptr;
 
 	ConfirmationDialog *confirmation = nullptr;
+	//tutorial_prompt 追加
 	ConfirmationDialog *tutorial_prompt = nullptr;
+
 	bool stop_project_confirmation = false;
 	bool stop_download_confirmation = false;
 	Button *confirmation_button = nullptr;
@@ -561,6 +563,12 @@ private:
 	void _menu_option(int p_option);
 	void _menu_confirm_current();
 	void _menu_option_confirm(int p_option, bool p_confirmed);
+	
+	// ここから tutorial_prompt 追加
+	void _show_tutorial_prompt();
+	void _tutorial_prompt_confirmed();
+	void _tutorial_prompt_canceled();
+	// ここまで tutorial_prompt 追加
 
 	void _android_build_source_selected(const String &p_file);
 	void _android_export_preset_selected(int p_index);
