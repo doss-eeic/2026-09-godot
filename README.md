@@ -37,14 +37,14 @@ confirmation = memnew(ConfirmationDialog);
 ```
 さらに、その近くには、親への追加、サイズ設定、シグナル接続などが並んでいました。
 ```cpp
-    confirmation_button = confirmation->add_button(TTRC("Don't Save"), DisplayServer::get_singleton()->get_swap_cancel_ok(), "discard");
-	gui_base->add_child(confirmation);
-	confirmation->set_min_size(Vector2(450.0 * EDSCALE, 0));
-	confirmation->connect(SceneStringName(confirmed), callable_mp(this, &EditorNode::_menu_confirm_current));
-	confirmation->connect("custom_action", callable_mp(this, &EditorNode::_discard_changes));
-	confirmation->connect("canceled", callable_mp(this, &EditorNode::_cancel_confirmation));
+confirmation_button = confirmation->add_button(TTRC("Don't Save"), DisplayServer::get_singleton()->get_swap_cancel_ok(), "discard");
+gui_base->add_child(confirmation);
+confirmation->set_min_size(Vector2(450.0 * EDSCALE, 0));
+confirmation->connect(SceneStringName(confirmed), callable_mp(this, &EditorNode::_menu_confirm_current));
+confirmation->connect("custom_action", callable_mp(this, &EditorNode::_discard_changes));
+confirmation->connect("canceled", callable_mp(this, &EditorNode::_cancel_confirmation));
 
-    save_confirmation = memnew(ConfirmationDialog);
+save_confirmation = memnew(ConfirmationDialog);
 ```
 これらが確認画面生成の一連の処理ではないかとあたりをつけ、ブレークポイントを`editor/editor_node.cpp:9426`に置きました。gdbで一連の流れを確認した結果、
 1. 9426行実行前時点では、`confirmation`はヌルポインター
@@ -52,7 +52,8 @@ confirmation = memnew(ConfirmationDialog);
 3. `gui_base->add_child(confirmation);`の前後で`gui_base`の子として`confirmation`が追加された
 4. `confirmation->set_min_size(Vector2(450.0 * EDSCALE, 0));`の実行前後で、`get_min_size()`の返す値が変わった
 5. 3つの`connect`行の実行後、`save_confirmation`に到達(接続先の関数がボタン操作によって呼ばれるところまでは確認していない)
-の流れで確認画面の生成が進んでいることがわかりました。(ここまでの流れでは、確認画面を実際に表示する処理までは調べていない状態です。)
+
+の流れで確認画面の生成が進んでいることがわかりました。ここまでの流れでは、確認画面を実際に表示する処理までは調べていない状態です。
 
 
 # 機能2:初期化ログ
