@@ -387,6 +387,7 @@ private:
 	Node *_last_instantiated_scene = nullptr;
 
 	ConfirmationDialog *confirmation = nullptr;
+	ConfirmationDialog *tutorial_prompt = nullptr;
 	bool stop_project_confirmation = false;
 	bool stop_download_confirmation = false;
 	Button *confirmation_button = nullptr;
