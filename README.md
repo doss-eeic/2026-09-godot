@@ -82,6 +82,17 @@ void EditorNode::_show_tutorial_prompt() {
 		return;
 	}
 
+	EditorSettings *editor_settings = EditorSettings::get_singleton();
+	const String tutorial_prompt_answered_key = "tutorial/initial_prompt_answered";
+	const bool tutorial_prompt_answered = editor_settings->has_setting(tutorial_prompt_answered_key) && bool(editor_settings->get_setting(tutorial_prompt_answered_key));
+	if (tutorial_prompt_answered) {
+		return;
+	}
+
+	if (tutorial_prompt->get_window() != get_last_exclusive_window()) {
+		tutorial_prompt->reparent(get_last_exclusive_window());
+	}
+
 	tutorial_prompt->reset_size();
 	tutorial_prompt->popup_centered();
 }
@@ -90,7 +101,40 @@ void EditorNode::_show_tutorial_prompt() {
 
 その後`conotinue`をし、Godotの画面を開くと以下の画像のようにチュートリアル確認画面が表示されました。これで確認画面の生成については完成です。
 
+## 初回起動時にのみ確認画面を表示する
+### 実装
+今回は、起動をまたいで保存されるフラグが必要になります。ここで着目するのはユーザー単位の設定である`EditorSettings`です。これはGodotエディタを実行した際に、必要に応じて作成/更新されるものとなっており、設定実体は、Linux環境の場合、`editor/settings/editor_settings.*`に保存されます。
 
+まず、`~/.config/godot/editor_settings-4.8.tres`に以下のようなコードを追加しました。
+```
+tutorial/initial_prompt_answered = false
+```
+
+ここで、`Yes/No`ボタンが押された際に呼び出される、`_tutorial_prompt_confirmed()`、`_tutorial_prompt_canceled()`で設定値を書き込み、起動をまたいで保存されるログの生成を行いました。以下では、例として`_tutorial_prompt_confirmed()`のコードを紹介します。
+```cpp
+void EditorNode::_tutorial_prompt_confirmed() {
+
+	EditorSettings::get_singleton()->set_setting("tutorial/initial_prompt_answered", true);
+	EditorSettings::save();
+    ...
+}
+```
+チュートリアル確認画面のうちYes(Noを押した場合も同様)を押し、`_tutorial_prompt_confirmed()`が実行されると、`EditorSettings::get_singleton()->set_setting("tutorial/initial_prompt_answered", true);`が実行され、`save()`により、変更内容が保存されます。
+
+ここで先ほどの`~/.config/godot/editor_settings-4.8.tres`のコードを確認すると、以下のように変更が加えられ、期待通りの動作が確認されました。
+
+```
+tutorial/initial_prompt_answered = true
+```
+
+この変数が`true`となることで、`_show_tutorial_prompt()`内の
+
+```cpp
+if (tutorial_prompt_answered) {
+	return;
+}
+```
+が実行され、`popup_centered()`が実行される前に関数を抜け出すことで、初回起動時のみに確認画面が表示される機能が実装されました。
 
 # 機能2:初期化ログ
 
