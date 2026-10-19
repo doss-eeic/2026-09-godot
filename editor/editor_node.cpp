@@ -4051,6 +4051,24 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 		case HELP_SUPPORT_GODOT_DEVELOPMENT: {
 			OS::get_singleton()->shell_open("https://fund.godotengine.org/?ref=help_menu");
 		} break;
+
+		// ここから tutorial_prompt 追加
+		case HELP_TUTORIAL_OVERVIEW: {
+			show_warning(TTR("Tutorial placeholder: Editor screen overview will be added in the next step."), TTR("Editor Tutorial"));
+		} break;
+		case HELP_TUTORIAL_SCENE_AND_NODE: {
+			show_warning(TTR("Tutorial placeholder: Scene and node basics will be added in the next step."), TTR("Editor Tutorial"));
+		} break;
+		case HELP_TUTORIAL_ADD_AND_EDIT_NODE: {
+			show_warning(TTR("Tutorial placeholder: Adding and editing nodes will be added in the next step."), TTR("Editor Tutorial"));
+		} break;
+		case HELP_TUTORIAL_SAVE_AND_RUN: {
+			show_warning(TTR("Tutorial placeholder: Saving and running a scene will be added in the next step."), TTR("Editor Tutorial"));
+		} break;
+		case HELP_TUTORIAL_SCRIPT_BASICS: {
+			show_warning(TTR("Tutorial placeholder: Script basics will be added in the next step."), TTR("Editor Tutorial"));
+		} break;
+		// ここまで tutorial_prompt 追加
 	}
 }
 
@@ -6997,14 +7015,12 @@ void EditorNode::_show_tutorial_prompt() {
 		return;
 	}
 
-	// ここから tutorial_prompt 追加
 	EditorSettings *editor_settings = EditorSettings::get_singleton();
 	const String tutorial_prompt_answered_key = "tutorial/initial_prompt_answered";
 	const bool tutorial_prompt_answered = editor_settings->has_setting(tutorial_prompt_answered_key) && bool(editor_settings->get_setting(tutorial_prompt_answered_key));
 	if (tutorial_prompt_answered) {
 		return;
 	}
-	// ここまで tutorial_prompt 追加
 
 	if (tutorial_prompt->get_window() != get_last_exclusive_window()) {
 		tutorial_prompt->reparent(get_last_exclusive_window());
@@ -7013,6 +7029,7 @@ void EditorNode::_show_tutorial_prompt() {
 	tutorial_prompt->reset_size();
 	tutorial_prompt->popup_centered();
 }
+// ここまで tutorial_prompt 追加
 
 void EditorNode::_tutorial_prompt_confirmed() {
 
@@ -8359,6 +8376,23 @@ void EditorNode::_build_help_menu(bool p_dark_mode) {
 
 	help_menu->add_icon_shortcut(get_editor_theme_native_menu_icon(SNAME("HelpSearch"), menu_type == MENU_TYPE_GLOBAL, p_dark_mode), ED_GET_SHORTCUT("editor/editor_help"), HELP_SEARCH);
 	help_menu->add_separator();
+
+	// ここから tutorial_prompt 追加
+	if (!help_tutorial_menu) {
+		help_tutorial_menu = memnew(PopupMenu);
+		help_tutorial_menu->connect(SceneStringName(id_pressed), callable_mp(this, &EditorNode::_menu_option));
+	}
+
+	help_tutorial_menu->clear(false);
+	help_tutorial_menu->add_item(TTRC("Editor Screen Overview"), HELP_TUTORIAL_OVERVIEW);
+	help_tutorial_menu->add_item(TTRC("Scene and Node Basics"), HELP_TUTORIAL_SCENE_AND_NODE);
+	help_tutorial_menu->add_item(TTRC("Adding and Editing Nodes"), HELP_TUTORIAL_ADD_AND_EDIT_NODE);
+	help_tutorial_menu->add_item(TTRC("Saving and Running a Scene"), HELP_TUTORIAL_SAVE_AND_RUN);
+	help_tutorial_menu->add_item(TTRC("Script Basics"), HELP_TUTORIAL_SCRIPT_BASICS);
+	help_menu->add_submenu_node_item(TTRC("Tutorial"), help_tutorial_menu);
+	help_menu->add_separator();
+	// ここまで tutorial_prompt 追加
+
 	help_menu->add_shortcut(ED_GET_SHORTCUT("editor/online_docs"), HELP_DOCS);
 	help_menu->add_shortcut(ED_GET_SHORTCUT("editor/forum"), HELP_FORUM);
 	help_menu->add_shortcut(ED_GET_SHORTCUT("editor/community"), HELP_COMMUNITY);
@@ -9484,7 +9518,7 @@ EditorNode::EditorNode() {
 	tutorial_prompt = memnew(ConfirmationDialog);
 	gui_base->add_child(tutorial_prompt);
 	tutorial_prompt->set_title(TTR("Editor Tutorial"));
-	tutorial_prompt->set_text(TTR("Would you like to start the editor tutorial?"));
+	tutorial_prompt->set_text(TTR("Would you like to start the editor tutorial?\n\nYou can open it later from Help."));
 	tutorial_prompt->set_ok_button_text(TTR("Yes"));
 	tutorial_prompt->get_cancel_button()->set_text(TTR("No"));
 	tutorial_prompt->connect(SceneStringName(confirmed), callable_mp(this, &EditorNode::_tutorial_prompt_confirmed));

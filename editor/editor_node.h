@@ -218,6 +218,14 @@ public:
 		HELP_ABOUT,
 		HELP_SUPPORT_GODOT_DEVELOPMENT,
 
+		// ここから tutorial_prompt 追加
+		HELP_TUTORIAL_OVERVIEW,
+		HELP_TUTORIAL_SCENE_AND_NODE,
+		HELP_TUTORIAL_ADD_AND_EDIT_NODE,
+		HELP_TUTORIAL_SAVE_AND_RUN,
+		HELP_TUTORIAL_SCRIPT_BASICS,
+		// ここまで tutorial_prompt 追加
+
 		// Update spinner menu.
 		SPINNER_UPDATE_CONTINUOUSLY,
 		SPINNER_UPDATE_WHEN_CHANGED,
@@ -358,6 +366,11 @@ private:
 	PopupMenu *debug_menu = nullptr;
 	PopupMenu *settings_menu = nullptr;
 	PopupMenu *help_menu = nullptr;
+
+	// ここから tutorial_prompt 追加
+	PopupMenu *help_tutorial_menu = nullptr;
+	// ここまで tutorial_prompt 追加
+
 	PopupMenu *tool_menu = nullptr;
 	PopupMenu *export_as_menu = nullptr;
 	Button *export_button = nullptr;
