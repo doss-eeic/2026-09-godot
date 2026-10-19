@@ -653,6 +653,15 @@ Node *SceneState::_instantiate(GenEditState p_edit_state, LocalVector<DeferredNo
 			} else {
 				node->remove_meta("_edit_pinned_properties_");
 			}
+			
+			String node_name = node->get_name();
+			Ref<Script> script = node->get_script();
+			String script_path = script.is_valid() ? script->get_path() : String();
+
+			//only print if it is a user-defined script, not a built-in one
+			if(script_path.contains("res://")) {
+				print_line(node_name + " | " + script_path);	
+			}
 		}
 
 		if (missing_node) {
