@@ -40,6 +40,7 @@
 #include "core/templates/local_vector.h"
 #include "core/variant/callable_bind.h"
 #include "core/variant/container_type_validate.h"
+#include "core/config/project_settings.h"
 #include "scene/gui/control.h"
 #include "scene/main/instance_placeholder.h"
 #include "scene/main/missing_node.h"
@@ -270,6 +271,8 @@ Node *SceneState::_instantiate(GenEditState p_edit_state, LocalVector<DeferredNo
 
 	bool deep_search_warned = false;
 
+	const bool log_init_calls = GLOBAL_GET("debug/settings/gdscript/log_init_calls") &&
+								(Engine::get_singleton()->is_editor_hint() == false);
 	for (int i = 0; i < nc; i++) {
 		const NodeData &n = nd[i];
 
@@ -654,13 +657,16 @@ Node *SceneState::_instantiate(GenEditState p_edit_state, LocalVector<DeferredNo
 				node->remove_meta("_edit_pinned_properties_");
 			}
 			
-			String node_name = node->get_name();
-			Ref<Script> script = node->get_script();
-			String script_path = script.is_valid() ? script->get_path() : String();
+			//Notify the user of the node name and script path which is being instantiated, but only if it is a user-defined script, not a built-in one.
+			if (log_init_calls) {
+				String node_name = node->get_name();
+				Ref<Script> script = node->get_script();
+				String script_path = script.is_valid() ? script->get_path() : String();
 
-			//only print if it is a user-defined script, not a built-in one
-			if(script_path.contains("res://")) {
-				print_line(node_name + " | " + script_path);	
+				//only print if it is a user-defined script, not a built-in one
+				if(script_path.contains("res://")) {
+					print_line(node_name + " | " + script_path);	
+				}
 			}
 		}
 
