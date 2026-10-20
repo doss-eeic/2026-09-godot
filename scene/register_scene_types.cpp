@@ -1331,6 +1331,9 @@ void register_scene_types() {
 		GLOBAL_DEF_BASIC(vformat("%s/layer_%d", PNAME("layer_names/avoidance"), i + 1), "");
 	}
 
+	//this setting is used to log all calls to _init() in GDScript.
+	GLOBAL_DEF("debug/settings/gdscript/log_init_calls", false);
+
 	if (RenderingServer::get_singleton()) {
 		// RenderingServer needs to exist for this to succeed.
 		ColorPickerShape::init_shaders();
