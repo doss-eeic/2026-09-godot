@@ -9350,7 +9350,7 @@ EditorNode::EditorNode() {
 	help_menu = memnew(PopupMenu);
 	help_menu->connect(SceneStringName(id_pressed), callable_mp(this, &EditorNode::_menu_option));
 	_add_to_main_menu(TTRC("Help"), help_menu);
-
+	
 	_update_main_menu_type();
 
 	// Spacer to center 2D / 3D / Script buttons.
@@ -9518,7 +9518,7 @@ EditorNode::EditorNode() {
 	tutorial_prompt = memnew(ConfirmationDialog);
 	gui_base->add_child(tutorial_prompt);
 	tutorial_prompt->set_title(TTR("Editor Tutorial"));
-	tutorial_prompt->set_text(TTR("Would you like to start the editor tutorial?\n\nYou can open it later from Help."));
+	tutorial_prompt->set_text(TTR("Would you like to start the editor tutorial?\n\nYou can open it later from Help in the top left."));
 	tutorial_prompt->set_ok_button_text(TTR("Yes"));
 	tutorial_prompt->get_cancel_button()->set_text(TTR("No"));
 	tutorial_prompt->connect(SceneStringName(confirmed), callable_mp(this, &EditorNode::_tutorial_prompt_confirmed));
