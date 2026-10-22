@@ -9,9 +9,9 @@
 ## チュートリアルの作成
 ゲーム制作をするうえで一つのハードルとなり得るのが、操作方法がわからないというものです。
 
-Godotには、調べればたくさんのチュートリアルのようなものが出てくるのですが、説明文や日常的には使われることのない単語がたくさん出てきます。
+Godotには、調べればたくさんのテキストチュートリアルが出てくるのですが、godotエディタ上に直接表示されるチュートリアルは存在しません。
 
-今回は、Godotのソースコードをいじることで機能の一つとして、上記の問題を解消するチュートリアルを実装しよう、というのがひとつめの目標です。
+今回は、Godotのソースコードをいじることで機能の一つとして、godotエディタ上に直接表示されるチュートリアルを実装しよう、というのがひとつめの目標です。
 
 チュートリアルは、Godotをインストール後の初回の起動時に「はい/いいえ」を選択でき、その後はHelpの部分からいつでもアクセスできるようにすることを想定しました。
 
@@ -69,7 +69,7 @@ _tutorial_prompt_canceled()
 tutorial_prompt = memnew(ConfirmationDialog);
 	gui_base->add_child(tutorial_prompt);
 	tutorial_prompt->set_title(TTR("Editor Tutorial"));
-	tutorial_prompt->set_text(TTR("Would you like to start the editor tutorial?"));
+	tutorial_prompt->set_text(TTR("Would you like to start the editor tutorial?\n\nYou can open it later from Help in the top left."));
 	tutorial_prompt->set_ok_button_text(TTR("Yes"));
 	tutorial_prompt->get_cancel_button()->set_text(TTR("No"));
 	tutorial_prompt->connect(SceneStringName(confirmed), callable_mp(this, &EditorNode::_tutorial_prompt_confirmed));
@@ -100,6 +100,17 @@ void EditorNode::_show_tutorial_prompt() {
 `_show_tutorial_prompt()`は上記のような関数であり、無事実行され、`popup_centered()`まで到達することが確認されました。`cmdline_mode == false`は通常のGUIエディタとして動いていることを表します。
 
 その後`conotinue`をし、Godotの画面を開くと以下の画像のようにチュートリアル確認画面が表示されました。これで確認画面の生成については完成です。
+
+## ボタンを押すと次の画面に行く
+この部分は`シグナル`という要素と、既存のAPIである`connect()`を使い、既存のコードを参考にしながら実装しました。
+
+確認画面生成のコード内の
+```cpp
+	tutorial_prompt->connect(SceneStringName(confirmed), callable_mp(this, &EditorNode::_tutorial_prompt_confirmed));
+```
+を例に説明していきます。`connect()`を用いることで、あるボタンをクリックするという`シグナル`(イベント)と、それを受けて実行される関数を接続することができます。
+
+今回の例では、tutorial_promptが(Yesボタンが押されることで生じる)`confirmedシグナル`を発したときに、`_tutorial_prompt_confirmed`が呼ばれるようになります。この関数が実行されることで、Yesボタンとしての機能が果たされるという仕組みです。
 
 ## 初回起動時にのみ確認画面を表示する
 ### 実装
@@ -135,6 +146,90 @@ if (tutorial_prompt_answered) {
 }
 ```
 が実行され、`popup_centered()`が実行される前に関数を抜け出すことで、初回起動時のみに確認画面が表示される機能が実装されました。
+
+## Helpからチュートリアルを再開できるようにする
+### コードの特定
+今回も、確認画面の作成時と同様に、`editor/`レイヤに絞り特定を行っていくことにしました。
+
+既存のHelpメニューは以下に示す画像のような構成をしています。
+
+始めに、`editor_node.cpp`において、`Report a Bug`で検索をかけました。そこでヒットしたコードの周辺に、以下のようコードを見つけました。
+```cpp
+help_menu = memnew(PopupMenu);
+help_menu->connect(SceneStringName(id_pressed), callable_mp(this, &EditorNode::_menu_option));
+_add_to_main_menu(TTRC("Help"), help_menu);
+```
+これは確認画面において、ボタンが押された際に画面が切り替わる仕組みの部分と似ています。`_menu_option`は以下のように`_menu_option_confirm`を呼び出す関数です。
+```cpp
+void EditorNode::_menu_option(int p_option) {
+	_menu_option_confirm(p_option, false);
+}
+```
+ここがHelpメニューのクリック時の操作に関わるコードとあたりをつけ、`_menu_option`、`_menu_option_confirm`などとともにブレークポイントを置きました。gdbで一連の流れを確認した結果
+1. Helpメニュークリック時に`p_option`に項目のIDが運ばれ、`_menu_option`が呼ばれる
+2. その中身である`_menu_option_confirm`が呼ばれる
+3. `p_option`の値をもとに`_menu_option_confirm`内のswitchのcase分岐により処理関数に移る
+4. クリック項目の処理が関数により実行される
+
+という流れでHelpメニューのクリック時の処理が進んでいることがわかりました。`p_option`に渡される値は以下のように、`editor_node.h`内の`MenuOptions`というenumにより定義されています。クリックをすると既存のAPIによって、`PopupMenu`の`id_pressed`シグナルとして`p_option`が渡されるという仕組みになっているようです。
+```
+// Help menu.
+HELP_SEARCH,
+HELP_DOCS,
+HELP_FORUM,
+HELP_COMMUNITY,
+HELP_COPY_SYSTEM_INFO,
+HELP_REPORT_A_BUG,
+HELP_SUGGEST_A_FEATURE,
+HELP_SEND_DOCS_FEEDBACK,
+HELP_ABOUT,
+HELP_SUPPORT_GODOT_DEVELOPMENT,
+```
+
+### 実装
+はじめに、`MenuOptions`内に以下のコードを追加しました。
+```
+HELP_TUTORIAL_OVERVIEW,
+HELP_TUTORIAL_SCENE_AND_NODE,
+HELP_TUTORIAL_ADD_AND_EDIT_NODE,
+HELP_TUTORIAL_SAVE_AND_RUN,
+HELP_TUTORIAL_SCRIPT_BASICS,
+```
+これは、`コードの特定`の際に説明したように、どの項目がクリックされたのかを判断するために必要です。
+
+これら各項目がクリックされた際の処理は、以下のように`_menu_option_confirm`にcase文として追加しました。
+```cpp
+```
+クリックされた際には、選択されたcase文が実行されそれぞれの処理に入っていきます。
+
+続いて、以下のメンバーを追加しました。
+```
+PopupMenu *help_tutorial_menu = nullptr;
+```
+`PopupMenu`は複数の項目をもつメニューを表すクラスです。これを追加することで、Helpメニューにサブ項目がまとまっているのと同じ処理を用いて、tutorialというメニューの中にそれぞれの項目をまとめることができるようになります。
+
+また、以下のコードを`_build_help_menu`に追加しました。
+```cpp
+if (!help_tutorial_menu) {
+	help_tutorial_menu = memnew(PopupMenu);
+	help_tutorial_menu->connect(SceneStringName(id_pressed), callable_mp(this, &EditorNode::_menu_option));
+}
+help_tutorial_menu->clear(false);
+help_tutorial_menu->add_item(TTRC("Editor Screen Overview"), HELP_TUTORIAL_OVERVIEW);
+help_tutorial_menu->add_item(TTRC("Scene and Node Basics"), HELP_TUTORIAL_SCENE_AND_NODE);
+help_tutorial_menu->add_item(TTRC("Adding and Editing Nodes"), HELP_TUTORIAL_ADD_AND_EDIT_NODE);
+help_tutorial_menu->add_item(TTRC("Saving and Running a Scene"), HELP_TUTORIAL_SAVE_AND_RUN);
+help_tutorial_menu->add_item(TTRC("Script Basics"), HELP_TUTORIAL_SCRIPT_BASICS);
+help_menu->add_submenu_node_item(TTRC("Tutorial"), help_tutorial_menu);
+help_menu->add_separator();
+```
+if文ではすでにチュートリアルメニューが作成されたか否かを判定しています。初回時のみは実行され、それ以降は飛ばされます。その後の
+```cpp
+help_tutorial_menu->clear(false);
+```
+により、再構築されるたびに項目の数が増え続けてしまうことを防いでいます。
+
+これらの追加したコードと、既存のAPIにより、Helpメニューにtutorialの各項目を追加することができました。
 
 # 機能2:初期化ログ
 
