@@ -108,6 +108,7 @@ class ProjectExportDialog;
 class ProjectSettingsEditor;
 class SceneImportSettingsDialog;
 class ProjectUpgradeTool;
+class ColorRect;
 
 #ifdef ANDROID_ENABLED
 class TouchActionsPanel;
@@ -581,6 +582,17 @@ private:
 	void _show_tutorial_prompt();
 	void _tutorial_prompt_confirmed();
 	void _tutorial_prompt_canceled();
+
+	ConfirmationDialog *tutorial_step_dialog = nullptr;
+	Button *tutorial_back_button = nullptr;
+	Vector<String> tutorial_steps;
+	int tutorial_current_step = 0;
+
+	void _start_tutorial(int p_entry);
+	void _update_tutorial_step_dialog();
+	void _tutorial_next_step();
+	void _tutorial_dialog_custom_action(const String &p_action);
+	void _tutorial_close();
 	// ここまで tutorial_prompt 追加
 
 	void _android_build_source_selected(const String &p_file);

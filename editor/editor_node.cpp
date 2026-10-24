@@ -4054,10 +4054,11 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 
 		// ここから tutorial_prompt 追加
 		case HELP_TUTORIAL_OVERVIEW: {
-			show_warning(TTR("Tutorial placeholder: Editor screen overview will be added in the next step."), TTR("Editor Tutorial"));
+			_start_tutorial(HELP_TUTORIAL_OVERVIEW);
+
 		} break;
 		case HELP_TUTORIAL_SCENE_AND_NODE: {
-			show_warning(TTR("Tutorial placeholder: Scene and node basics will be added in the next step."), TTR("Editor Tutorial"));
+			show_warning(TTR("this is tutorial scene."), TTR("Editor Tutorial"));
 		} break;
 		case HELP_TUTORIAL_ADD_AND_EDIT_NODE: {
 			show_warning(TTR("Tutorial placeholder: Adding and editing nodes will be added in the next step."), TTR("Editor Tutorial"));
@@ -7038,7 +7039,7 @@ void EditorNode::_tutorial_prompt_confirmed() {
 	EditorSettings::save();
 	// ここまで tutorial_prompt 追加
 
-	show_warning(TTR("Tutorial placeholder: guide pages will be added in the next step."), TTR("Editor Tutorial"));
+	_start_tutorial(HELP_TUTORIAL_OVERVIEW);
 }
 
 void EditorNode::_tutorial_prompt_canceled() {
@@ -7049,6 +7050,79 @@ void EditorNode::_tutorial_prompt_canceled() {
 	// ここまで tutorial_prompt 追加
 
 }
+
+void EditorNode::_start_tutorial(int p_entry) {
+	if (!tutorial_step_dialog) {
+		return;
+	}
+
+	tutorial_steps.clear();
+	tutorial_current_step = 0;
+
+	switch (p_entry) {
+		case HELP_TUTORIAL_OVERVIEW: {
+			tutorial_steps.push_back(TTR("Welcome to the Editor Tutorial."));
+			tutorial_steps.push_back(TTR("Scene dock: Build your scene tree (parent/child nodes)."));
+			tutorial_steps.push_back(TTR("Inspector: Edit properties of the selected node or resource."));
+			tutorial_steps.push_back(TTR("FileSystem dock: Browse project files under res://."));
+			tutorial_steps.push_back(TTR("2D / 3D / Script tabs: Switch workspaces."));
+			tutorial_steps.push_back(TTR("Play buttons: Run the current scene or the main scene."));
+		} break;
+
+		default: {
+			tutorial_steps.push_back(TTR("Tutorial content will be added in the next step."));
+		} break;
+	}
+
+	_update_tutorial_step_dialog();
+	tutorial_step_dialog->reset_size();
+	tutorial_step_dialog->popup_centered();
+}
+
+void EditorNode::_update_tutorial_step_dialog() {
+	if (!tutorial_step_dialog || tutorial_steps.is_empty()) {
+		return;
+	}
+
+	tutorial_step_dialog->set_title(TTR("Editor Tutorial"));
+	tutorial_step_dialog->set_text(tutorial_steps[tutorial_current_step]);
+
+	if (tutorial_back_button) {
+		tutorial_back_button->set_disabled(tutorial_current_step == 0);
+	}
+
+	if (tutorial_current_step == tutorial_steps.size() - 1) {
+		tutorial_step_dialog->set_ok_button_text(TTR("Finish"));
+	} else {
+		tutorial_step_dialog->set_ok_button_text(TTR("Next"));
+	}
+}
+
+void EditorNode::_tutorial_next_step() {
+	if (tutorial_steps.is_empty()) {
+		return;
+	}
+
+	if (tutorial_current_step < tutorial_steps.size() - 1) {
+		tutorial_current_step++;
+		_update_tutorial_step_dialog();
+		tutorial_step_dialog->popup_centered();
+	}
+}
+
+void EditorNode::_tutorial_dialog_custom_action(const String &p_action) {
+	if (p_action == "back" && tutorial_current_step > 0) {
+		tutorial_current_step--;
+		_update_tutorial_step_dialog();
+		tutorial_step_dialog->popup_centered();
+	}
+}
+
+void EditorNode::_tutorial_close() {
+	tutorial_steps.clear();
+	tutorial_current_step = 0;
+}
+
 // ここまで tutorial_prompt 追加
 
 
@@ -9523,6 +9597,21 @@ EditorNode::EditorNode() {
 	tutorial_prompt->get_cancel_button()->set_text(TTR("No"));
 	tutorial_prompt->connect(SceneStringName(confirmed), callable_mp(this, &EditorNode::_tutorial_prompt_confirmed));
 	tutorial_prompt->connect("canceled", callable_mp(this, &EditorNode::_tutorial_prompt_canceled));
+
+	tutorial_step_dialog = memnew(ConfirmationDialog);
+	gui_base->add_child(tutorial_step_dialog);
+	tutorial_step_dialog->set_title(TTR("Editor Tutorial"));
+	tutorial_step_dialog->set_text(TTR("Tutorial step placeholder."));
+	tutorial_step_dialog->set_ok_button_text(TTR("Next"));
+	tutorial_step_dialog->get_cancel_button()->set_text(TTR("Close"));
+
+	tutorial_back_button = tutorial_step_dialog->add_button(TTR("Back"), true, "back");
+	tutorial_back_button->set_disabled(true);
+
+	tutorial_step_dialog->connect(SceneStringName(confirmed), callable_mp(this, &EditorNode::_tutorial_next_step));
+	tutorial_step_dialog->connect("custom_action", callable_mp(this, &EditorNode::_tutorial_dialog_custom_action));
+	tutorial_step_dialog->connect("canceled", callable_mp(this, &EditorNode::_tutorial_close));
+
 	// ここまで tutorial_prompt 追加
 
 	save_confirmation = memnew(ConfirmationDialog);
