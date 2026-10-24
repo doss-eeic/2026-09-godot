@@ -239,16 +239,51 @@ help_tutorial_menu->clear(false);
 今回の暗転に関わるコードを探す際には、opencodeの力を借りました。`チュートリアル表示中に説明中の場所以外は暗転したいです。それに関わる既存の関数や変数を教えてください。`とプロンプトを打ち、実際に探してもらった結果、以下の関数たちを見つけてくれました。
 1. `set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT)`
 2. `set_color(Color(r, g, b, a))`
-3. `raise()`
+3. `move_to_front()`
+4. `ColorRect`
 
-これらの関数について説明をしていきます。
+これらの関数、クラスについて説明をしていきます。
 1. この関数は、画面全体に新しい領域を自動で配置してくれる関数です。これにより画面全体に、今回であれば暗転させるための画面を自動で配置してくれます。
 2. この関数は、文字通り色を配置してくれる関数です。`r`,`g`,`b`がそれぞれ`赤`、`緑`、`青`の色の強さを決定する引数であり、`a`は`透明度`を決定する引数です。いずれの引数も`0.0`から`1.0`の間の値を取ります。
 3. この関数は、同じ親の子ノードの中で、指定したノードを前面に持ってきてくれる関数です。暗転がほかのUIに埋もれないようにするために利用します。
+4. `ColorRect`はクラスであり、単色の矩形を描画するために使います。gui_baseの子に付け加えることで、`Color()`で指定した内容をもとに画面を表示するための土台となっています。
+
 
 暗転を実装していくにあたってはこれらのコードを利用していくことになります。
 
 ### 実装
+最初に、暗転レイヤーの実体を保持するメンバーを以下のように定義しました。
+```cpp
+ColorRect *tutorial_dimmer = nullptr;
+```
+続いて、暗転の表示に関する関数`_update_tutorial_overlay`を以下のように書きました。
+```cpp
+void EditorNode::_update_tutorial_overlay() {
+	if (!tutorial_dimmer) {
+		return;
+	}
+
+	if (tutorial_steps.is_empty()) {
+		tutorial_dimmer->hide();
+		return;
+	}
+
+	tutorial_dimmer->show();
+	tutorial_dimmer->move_to_front();
+}
+```
+この関数により、チュートリアルであると判断した際は暗転が表示されるようになります。
+
+次に、暗転の生成ステップを以下のように書きました。
+```cpp
+tutorial_dimmer = memnew(ColorRect);
+gui_base->add_child(tutorial_dimmer);
+tutorial_dimmer->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
+tutorial_dimmer->set_mouse_filter
+tutorial_dimmer->set_color(Color(0, 0, 0, 0.6));
+tutorial_dimmer->hide();
+```
+先ほど紹介した関数たちを使うことで、スクリーンに表示する暗転の生成が行われています。
 
 
 # 機能2:初期化ログ
