@@ -252,6 +252,38 @@ help_tutorial_menu->clear(false);
 暗転を実装していくにあたってはこれらのコードを利用していくことになります。
 
 ### 実装
+最初に、暗転レイヤーの実体を保持するメンバーを以下のように定義しました。
+```cpp
+ColorRect *tutorial_dimmer = nullptr;
+```
+続いて、暗転の表示に関する関数`_update_tutorial_overlay`を以下のように書きました。
+```cpp
+void EditorNode::_update_tutorial_overlay() {
+	if (!tutorial_dimmer) {
+		return;
+	}
+
+	if (tutorial_steps.is_empty()) {
+		tutorial_dimmer->hide();
+		return;
+	}
+
+	tutorial_dimmer->show();
+	tutorial_dimmer->move_to_front();
+}
+```
+この関数により、チュートリアルであると判断した際は暗転が表示されるようになります。
+
+次に、暗転の生成ステップを以下のように書きました。
+```cpp
+tutorial_dimmer = memnew(ColorRect);
+gui_base->add_child(tutorial_dimmer);
+tutorial_dimmer->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
+tutorial_dimmer->set_mouse_filter
+tutorial_dimmer->set_color(Color(0, 0, 0, 0.6));
+tutorial_dimmer->hide();
+```
+先ほど紹介した関数たちを使うことで、スクリーンに表示する暗転の生成が行われています。
 
 
 # 機能2:初期化ログ

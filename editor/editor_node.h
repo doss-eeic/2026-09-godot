@@ -370,6 +370,10 @@ private:
 
 	// ここから tutorial_prompt 追加
 	PopupMenu *help_tutorial_menu = nullptr;
+
+	ColorRect *tutorial_dimmer = nullptr;
+
+	void _update_tutorial_overlay();
 	// ここまで tutorial_prompt 追加
 
 	PopupMenu *tool_menu = nullptr;

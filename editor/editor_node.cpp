@@ -7030,24 +7030,19 @@ void EditorNode::_show_tutorial_prompt() {
 	tutorial_prompt->reset_size();
 	tutorial_prompt->popup_centered();
 }
-// ここまで tutorial_prompt 追加
 
 void EditorNode::_tutorial_prompt_confirmed() {
 
-	// ここから tutorial_prompt 追加
 	EditorSettings::get_singleton()->set_setting("tutorial/initial_prompt_answered", true);
 	EditorSettings::save();
-	// ここまで tutorial_prompt 追加
 
 	_start_tutorial(HELP_TUTORIAL_OVERVIEW);
 }
 
 void EditorNode::_tutorial_prompt_canceled() {
 
-	// ここから tutorial_prompt 追加
 	EditorSettings::get_singleton()->set_setting("tutorial/initial_prompt_answered", true);
 	EditorSettings::save();
-	// ここまで tutorial_prompt 追加
 
 }
 
@@ -7096,6 +7091,8 @@ void EditorNode::_update_tutorial_step_dialog() {
 	} else {
 		tutorial_step_dialog->set_ok_button_text(TTR("Next"));
 	}
+
+	_update_tutorial_overlay();
 }
 
 void EditorNode::_tutorial_next_step() {
@@ -7107,6 +7104,14 @@ void EditorNode::_tutorial_next_step() {
 		tutorial_current_step++;
 		_update_tutorial_step_dialog();
 		tutorial_step_dialog->popup_centered();
+	}
+
+	if (tutorial_current_step < tutorial_steps.size() - 1) {
+	tutorial_current_step++;
+	_update_tutorial_step_dialog();
+	tutorial_step_dialog->popup_centered();
+	} else {
+		_tutorial_close();
 	}
 }
 
@@ -7121,6 +7126,27 @@ void EditorNode::_tutorial_dialog_custom_action(const String &p_action) {
 void EditorNode::_tutorial_close() {
 	tutorial_steps.clear();
 	tutorial_current_step = 0;
+
+	if (tutorial_dimmer) {
+	tutorial_dimmer->hide();
+	}
+	if (tutorial_step_dialog) {
+		tutorial_step_dialog->hide();
+	}
+}
+
+void EditorNode::_update_tutorial_overlay() {
+	if (!tutorial_dimmer) {
+		return;
+	}
+
+	if (tutorial_steps.is_empty()) {
+		tutorial_dimmer->hide();
+		return;
+	}
+
+	tutorial_dimmer->show();
+	tutorial_dimmer->move_to_front(); // 背景を暗転
 }
 
 // ここまで tutorial_prompt 追加
@@ -9600,6 +9626,7 @@ EditorNode::EditorNode() {
 
 	tutorial_step_dialog = memnew(ConfirmationDialog);
 	gui_base->add_child(tutorial_step_dialog);
+	tutorial_step_dialog->set_hide_on_ok(false);
 	tutorial_step_dialog->set_title(TTR("Editor Tutorial"));
 	tutorial_step_dialog->set_text(TTR("Tutorial step placeholder."));
 	tutorial_step_dialog->set_ok_button_text(TTR("Next"));
@@ -9612,6 +9639,12 @@ EditorNode::EditorNode() {
 	tutorial_step_dialog->connect("custom_action", callable_mp(this, &EditorNode::_tutorial_dialog_custom_action));
 	tutorial_step_dialog->connect("canceled", callable_mp(this, &EditorNode::_tutorial_close));
 
+	tutorial_dimmer = memnew(ColorRect);
+	gui_base->add_child(tutorial_dimmer);
+	tutorial_dimmer->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
+	tutorial_dimmer->set_mouse_filter(Control::MOUSE_FILTER_IGNORE); // 今回は操作ブロックしない
+	tutorial_dimmer->set_color(Color(0, 0, 0, 0.6));
+	tutorial_dimmer->hide();
 	// ここまで tutorial_prompt 追加
 
 	save_confirmation = memnew(ConfirmationDialog);
