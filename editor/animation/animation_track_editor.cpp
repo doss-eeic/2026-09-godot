@@ -3621,6 +3621,7 @@ void AnimationTrackEdit::_popup_key_context_menu(int p_hovering_key_idx, Vector2
 		}
 	}
 	menu->add_icon_item(get_editor_theme_icon(SNAME("Key")), TTR("Insert Key..."), MENU_KEY_INSERT);
+	menu->add_icon_item(get_editor_theme_icon(SNAME("Key")), TTR("Insert Key on Head"), MENU_KEY_INSERT_ON_HEAD);
 	if (editor->is_selection_active()) {
 		menu->add_separator();
 		menu->add_icon_item(get_editor_theme_icon(SNAME("Duplicate")), TTR("Duplicate Key(s)"), MENU_KEY_DUPLICATE);
@@ -3705,6 +3706,9 @@ void AnimationTrackEdit::_menu_selected(int p_index) {
 		} break;
 		case MENU_KEY_INSERT: {
 			emit_signal(SNAME("insert_key"), insert_at_pos);
+		} break;
+		case MENU_KEY_INSERT_ON_HEAD: {
+			emit_signal(SNAME("insert_key"), timeline->get_play_position());
 		} break;
 		case MENU_KEY_DUPLICATE: {
 			emit_signal(SNAME("duplicate_request"), insert_at_pos, !editor->is_insert_at_current_time_enabled());
