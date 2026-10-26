@@ -200,6 +200,13 @@ HELP_TUTORIAL_SCRIPT_BASICS,
 
 これら各項目がクリックされた際の処理は、以下のように`_menu_option_confirm`にcase文として追加しました。
 ```cpp
+case HELP_TUTORIAL_OVERVIEW:
+    _start_tutorial(HELP_TUTORIAL_OVERVIEW);
+    break;
+case HELP_TUTORIAL_SCENE_AND_NODE:
+    _start_tutorial(HELP_TUTORIAL_SCENE_AND_NODE);
+    break;
+...
 ```
 クリックされた際には、選択されたcase文が実行されそれぞれの処理に入っていきます。
 
@@ -342,21 +349,15 @@ Control *highlight_target = nullptr;
 ```
 として管理するようにしました。
 
-また、`_update_tutorial_overlay`に以下のコードを追加しました。
+また`_update_tutorial_overlay`内に以下の関数コードを追加しました。
 ```cpp
-if (tutorial_current_entry == HELP_TUTORIAL_OVERVIEW) {
-	switch (tutorial_current_step) {
-		case 1:
-			highlight_target = SceneTreeDock::get_singleton();
-			break;
-		case 2:
-			...
-	}
-}
+const int highlight_target_id = _get_tutorial_highlight_target(tutorial_current_entry, tutorial_current_step);
+Control *highlight_target = _resolve_tutorial_highlight_target(highlight_target_id);
 ```
-ここでは、現在どのチュートリアル項目が表示されているかを管理する`tutorial_current_entry`と、チュートリアル項目のうち何ステップ目かを管理する`tutorial_current_step`を用いて対象を切り替えています。
 
-ここで`SceneTreeDock::get_singleton()`を使用しているのは、ドックの実体インスタンスを取得して`get_global_rect()`で画面上の矩形を取得するためです。`switch`でステップ番号ごとに対象をきめてあるので、`Next`/`Back`の操作に応じて切り抜き部分を切り替えられるようになっています。
+ここでは、現在どのチュートリアル項目が表示されているかを管理する`tutorial_current_entry`と、チュートリアル項目のうち何ステップ目かを管理する`tutorial_current_step`を用いています。`_get_tutorial_highlight_target`はこの二つから切り抜く対象のIDを返し、`_resolve_tutorial_highlight_target`がそのIDを`scene dock`などの実体インスタンスへと変換してくれます。
+
+実体インスタンスを取得しているのは、`get_global_rect()`で画面上の矩形を取得するためです。以上により、`Next`/`Back`の操作に応じて切り抜き部分を切り替えられるようになっています。
 
 2. 続いて、実際に切り抜きを作る処理を実装しました。
 
