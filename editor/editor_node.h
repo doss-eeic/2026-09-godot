@@ -372,6 +372,10 @@ private:
 	PopupMenu *help_tutorial_menu = nullptr;
 
 	ColorRect *tutorial_dimmer = nullptr;
+	ColorRect *tutorial_dimmer_top = nullptr;
+	ColorRect *tutorial_dimmer_bottom = nullptr;
+	ColorRect *tutorial_dimmer_left = nullptr;
+	ColorRect *tutorial_dimmer_right = nullptr;
 
 	void _update_tutorial_overlay();
 	// ここまで tutorial_prompt 追加
@@ -591,6 +595,7 @@ private:
 	Button *tutorial_back_button = nullptr;
 	Vector<String> tutorial_steps;
 	int tutorial_current_step = 0;
+	int tutorial_current_entry = -1;
 
 	void _start_tutorial(int p_entry);
 	void _update_tutorial_step_dialog();

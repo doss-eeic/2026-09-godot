@@ -102,6 +102,7 @@ void EditorNode::_show_tutorial_prompt() {
 その後`conotinue`をし、Godotの画面を開くと以下の画像のようにチュートリアル確認画面が表示されました。これで確認画面の生成については完成です。
 
 ## ボタンを押すと次の画面に行く
+### 実装
 この部分は`シグナル`という要素と、既存のAPIである`connect()`を使い、既存のコードを参考にしながら実装しました。
 
 確認画面生成のコード内の
@@ -110,7 +111,7 @@ void EditorNode::_show_tutorial_prompt() {
 ```
 を例に説明していきます。`connect()`を用いることで、あるボタンをクリックするという`シグナル`(イベント)と、それを受けて実行される関数を接続することができます。
 
-今回の例では、tutorial_promptが(Yesボタンが押されることで生じる)`confirmedシグナル`を発したときに、`_tutorial_prompt_confirmed`が呼ばれるようになります。この関数が実行されることで、Yesボタンとしての機能が果たされるという仕組みです。
+今回の例では、tutorial_promptが(Yesボタンが押されることで生じる)`confirmedシグナル`を発したときに、`_tutorial_prompt_confirmed`が呼ばれるようになります。この関数が実行されることで、Yesボタンとしての機能が果たされるという仕組みです。以後登場する`Next`や`Back`の実装も、基本的な構造は同じです
 
 ## 初回起動時にのみ確認画面を表示する
 ### 実装
@@ -234,7 +235,7 @@ help_tutorial_menu->clear(false);
 ## 説明文を共通のものにする
 ここでは、初回起動時の確認画面において`Yes`を選択した場合の説明文と、Helpメニューのチュートリアルにおける第一項目を選択した場合の説明文を共通のものにするという実装をしました。こちらは`Yes`を押した際に呼ばれる`_tutorial_prompt_confirmed`において、`HELP_TUTORIAL_OVERVIEW`の処理を実行することで、共通した説明文が表示されるようになりました。同様にして、ボタンを押した際に次の説明へと移れるようになっています。
 
-## 特定の場所以外を暗転させる
+## 画面を暗転させる
 ### コードの特定
 今回の暗転に関わるコードを探す際には、opencodeの力を借りました。`チュートリアル表示中に説明中の場所以外は暗転したいです。それに関わる既存の関数や変数を教えてください。`とプロンプトを打ち、実際に探してもらった結果、以下の関数たちを見つけてくれました。
 1. `set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT)`
@@ -280,11 +281,96 @@ tutorial_dimmer = memnew(ColorRect);
 gui_base->add_child(tutorial_dimmer);
 tutorial_dimmer->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 tutorial_dimmer->set_mouse_filter
-tutorial_dimmer->set_color(Color(0, 0, 0, 0.6));
+tutorial_dimmer->set_color(Color(0, 0, 0, 0.8));
 tutorial_dimmer->hide();
 ```
 先ほど紹介した関数たちを使うことで、スクリーンに表示する暗転の生成が行われています。
 
+## 特定の場所の暗転を外す
+チュートリアルの際に説明しているボタンなどがどれなのかをわかりやすくするために、暗転を特定の位置から取り除くための実装です。
+### コードの特定
+暗転の際の`rect`という単語に着目し、UIの座標はどのように取得しているのかを調べたところ、`get_global_rect`という関数が見つかりました。`get_global_rect`は`scene/gui/control.cpp`で以下のように定義されています。
+```cpp
+Rect2 Control::get_global_rect() const {
+	ERR_READ_THREAD_GUARD_V(Rect2());
+	Transform2D xform = get_global_transform();
+	return Rect2(xform.get_origin(), xform.get_scale() * get_size());
+}
+```
+`Rect2`は`.position(左上の座標)`や`.size(幅と高さ)`などをメンバーとして持つ構造体です。gdbでこの値が呼ばれる流れを確認したところ
+1. `Control::_compute_layout_rect(...)`という関数が呼ばれる
+2. 上記の関数で計算された位置とサイズがそれぞれ`data.pos_cache`と`data.size_cache`に反映される
+3. `get_global_rect`が呼ばれると、`get_global_transform`で反映された内容を読み取り、`Rect2(xform.get_origin(), xform.get_scale() * get_size())`を返す
+
+という一連の流れが確認できました。これにより切り抜くべき場所を特定することができるようになりました。
+
+### 実装
+1. 最初にどの切り抜き対象の判別の部分を説明します。
+
+先に実装した暗転の一部を切り抜くということはできないようなので、今回は切り抜く場所の上下左右に4枚の暗転した画面を表示することにしました。今回は主に`scene dock`という項目の切り抜きを例に説明していきます。
+
+全画面を暗転させたときと同様に、上下左右のレイヤーの実体を保持するメンバーを以下のように定義しました。
+```
+ColorRect *tutorial_dimmer_top = nullptr;
+ColorRect *tutorial_dimmer_bottom = nullptr;
+ColorRect *tutorial_dimmer_left = nullptr;
+ColorRect *tutorial_dimmer_right = nullptr;
+```
+続いて、切り抜く対象を
+```cpp
+Control *highlight_target = nullptr;
+```
+として管理するようにしました。
+
+また、`_update_tutorial_overlay`に以下のコードを追加しました。
+```cpp
+if (tutorial_current_entry == HELP_TUTORIAL_OVERVIEW) {
+	switch (tutorial_current_step) {
+		case 1:
+			highlight_target = SceneTreeDock::get_singleton();
+			break;
+		case 2:
+			...
+	}
+}
+```
+ここでは、現在どのチュートリアル項目が表示されているかを管理する`tutorial_current_entry`と、チュートリアル項目のうち何ステップ目かを管理する`tutorial_current_step`を用いて対象を切り替えています。
+
+ここで`SceneTreeDock::get_singleton()`を使用しているのは、ドックの実体インスタンスを取得して`get_global_rect()`で画面上の矩形を取得するためです。`switch`でステップ番号ごとに対象をきめてあるので、`Next`/`Back`の操作に応じて切り抜き部分を切り替えられるようになっています。
+
+2. 続いて、実際に切り抜きを作る処理を実装しました。
+
+まず初めに、座標の変換を実装しました。`get_global_rect`で取得される座標は、画面全体のうち、その左上を原点としたときの座標です。一方、暗転レイヤー上で配置するときは、暗転レイヤーの左上を原点として考えなければいけないので、対象座標から暗転レイヤーの左上の位置を引いて、基準をそろえる必要があります。この部分は以下のコードで実装をしました。
+```cpp
+const Vector2 overlay_global_pos = tutorial_dimmer->get_global_position();
+Rect2 highlight_rect = highlight_target->get_global_rect();
+highlight_rect.position -= overlay_global_pos;
+```
+その後、切り抜き部分の外側を、上下左右の4つの領域に分割して、それぞれに暗転レイヤーを配置するために以下のコードを追加しました。
+```cpp
+const float x = highlight_rect.position.x;
+const float y = highlight_rect.position.y;
+const float w = highlight_rect.size.x;
+const float h = highlight_rect.size.y;
+
+set_dimmer_rect(tutorial_dimmer_top, Rect2(0.0f, 0.0f, overlay_size.x, y));
+set_dimmer_rect(tutorial_dimmer_bottom, Rect2(0.0f, y + h, overlay_size.x, overlay_size.y - (y + h)));
+set_dimmer_rect(tutorial_dimmer_left, Rect2(0.0f, y, x, h));
+set_dimmer_rect(tutorial_dimmer_right, Rect2(x + w, y, overlay_size.x - (x + w), h));
+```
+また、切り抜き部分が表示画面外にはみ出さないために、以下のコードを加えました。
+```cpp
+const Size2 overlay_size = tutorial_dimmer->get_size();
+if (overlay_size.x <= 0.0f || overlay_size.y <= 0.0f) {
+	return;
+}
+
+highlight_rect.position.x = CLAMP(highlight_rect.position.x, 0.0f, overlay_size.x);
+highlight_rect.position.y = CLAMP(highlight_rect.position.y, 0.0f, overlay_size.y);
+highlight_rect.size.x = MIN(highlight_rect.size.x, overlay_size.x - highlight_rect.position.x);
+highlight_rect.size.y = MIN(highlight_rect.size.y, overlay_size.y - highlight_rect.position.y);
+```
+以上により、現在説明されているステップの項目だけが暗転しないので、結果として説明部分の強調が実装できました。
 
 # 機能2:初期化ログ
 
