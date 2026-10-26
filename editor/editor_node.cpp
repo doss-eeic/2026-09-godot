@@ -1702,6 +1702,7 @@ void EditorNode::_reload_project_settings() {
 }
 
 void EditorNode::_vp_resized() {
+	_update_tutorial_overlay();
 }
 
 void EditorNode::_viewport_resized() {
@@ -7053,6 +7054,7 @@ void EditorNode::_start_tutorial(int p_entry) {
 
 	tutorial_steps.clear();
 	tutorial_current_step = 0;
+	tutorial_current_entry = p_entry;
 
 	switch (p_entry) {
 		case HELP_TUTORIAL_OVERVIEW: {
@@ -7103,13 +7105,6 @@ void EditorNode::_tutorial_next_step() {
 	if (tutorial_current_step < tutorial_steps.size() - 1) {
 		tutorial_current_step++;
 		_update_tutorial_step_dialog();
-		tutorial_step_dialog->popup_centered();
-	}
-
-	if (tutorial_current_step < tutorial_steps.size() - 1) {
-	tutorial_current_step++;
-	_update_tutorial_step_dialog();
-	tutorial_step_dialog->popup_centered();
 	} else {
 		_tutorial_close();
 	}
@@ -7119,16 +7114,28 @@ void EditorNode::_tutorial_dialog_custom_action(const String &p_action) {
 	if (p_action == "back" && tutorial_current_step > 0) {
 		tutorial_current_step--;
 		_update_tutorial_step_dialog();
-		tutorial_step_dialog->popup_centered();
 	}
 }
 
 void EditorNode::_tutorial_close() {
 	tutorial_steps.clear();
 	tutorial_current_step = 0;
+	tutorial_current_entry = -1;
 
 	if (tutorial_dimmer) {
-	tutorial_dimmer->hide();
+		tutorial_dimmer->hide();
+	}
+	if (tutorial_dimmer_top) {
+		tutorial_dimmer_top->hide();
+	}
+	if (tutorial_dimmer_bottom) {
+		tutorial_dimmer_bottom->hide();
+	}
+	if (tutorial_dimmer_left) {
+		tutorial_dimmer_left->hide();
+	}
+	if (tutorial_dimmer_right) {
+		tutorial_dimmer_right->hide();
 	}
 	if (tutorial_step_dialog) {
 		tutorial_step_dialog->hide();
@@ -7142,11 +7149,98 @@ void EditorNode::_update_tutorial_overlay() {
 
 	if (tutorial_steps.is_empty()) {
 		tutorial_dimmer->hide();
+		if (tutorial_dimmer_top) {
+			tutorial_dimmer_top->hide();
+		}
+		if (tutorial_dimmer_bottom) {
+			tutorial_dimmer_bottom->hide();
+		}
+		if (tutorial_dimmer_left) {
+			tutorial_dimmer_left->hide();
+		}
+		if (tutorial_dimmer_right) {
+			tutorial_dimmer_right->hide();
+		}
 		return;
 	}
 
-	tutorial_dimmer->show();
-	tutorial_dimmer->move_to_front(); // 背景を暗転
+	Control *highlight_target = nullptr;
+	if (tutorial_current_entry == HELP_TUTORIAL_OVERVIEW) {
+		switch (tutorial_current_step) {
+			case 1:
+				highlight_target = SceneTreeDock::get_singleton();
+				break;
+			case 2:
+				highlight_target = InspectorDock::get_singleton();
+				break;
+		}
+	}
+
+	if (!highlight_target || !highlight_target->is_visible_in_tree()) {
+		tutorial_dimmer->show();
+		tutorial_dimmer->move_to_front();
+		if (tutorial_dimmer_top) {
+			tutorial_dimmer_top->hide();
+		}
+		if (tutorial_dimmer_bottom) {
+			tutorial_dimmer_bottom->hide();
+		}
+		if (tutorial_dimmer_left) {
+			tutorial_dimmer_left->hide();
+		}
+		if (tutorial_dimmer_right) {
+			tutorial_dimmer_right->hide();
+		}
+		if (tutorial_step_dialog) {
+			tutorial_step_dialog->popup_centered();
+		}
+		return;
+	}
+
+	tutorial_dimmer->hide();
+
+	const Vector2 overlay_global_pos = tutorial_dimmer->get_global_position();
+	Rect2 highlight_rect = highlight_target->get_global_rect();
+	highlight_rect.position -= overlay_global_pos;
+	highlight_rect = highlight_rect.grow(6.0f * EDSCALE);
+
+	const Size2 overlay_size = tutorial_dimmer->get_size();
+	if (overlay_size.x <= 0.0f || overlay_size.y <= 0.0f) {
+		return;
+	}
+
+	highlight_rect.position.x = CLAMP(highlight_rect.position.x, 0.0f, overlay_size.x);
+	highlight_rect.position.y = CLAMP(highlight_rect.position.y, 0.0f, overlay_size.y);
+	highlight_rect.size.x = MIN(highlight_rect.size.x, overlay_size.x - highlight_rect.position.x);
+	highlight_rect.size.y = MIN(highlight_rect.size.y, overlay_size.y - highlight_rect.position.y);
+
+	auto set_dimmer_rect = [](ColorRect *p_dimmer, const Rect2 &p_rect) {
+		if (!p_dimmer) {
+			return;
+		}
+		if (p_rect.size.x <= 0.0f || p_rect.size.y <= 0.0f) {
+			p_dimmer->hide();
+			return;
+		}
+		p_dimmer->set_position(p_rect.position);
+		p_dimmer->set_size(p_rect.size);
+		p_dimmer->show();
+		p_dimmer->move_to_front();
+	};
+
+	const float x = highlight_rect.position.x;
+	const float y = highlight_rect.position.y;
+	const float w = highlight_rect.size.x;
+	const float h = highlight_rect.size.y;
+
+	set_dimmer_rect(tutorial_dimmer_top, Rect2(0.0f, 0.0f, overlay_size.x, y));
+	set_dimmer_rect(tutorial_dimmer_bottom, Rect2(0.0f, y + h, overlay_size.x, overlay_size.y - (y + h)));
+	set_dimmer_rect(tutorial_dimmer_left, Rect2(0.0f, y, x, h));
+	set_dimmer_rect(tutorial_dimmer_right, Rect2(x + w, y, overlay_size.x - (x + w), h));
+
+	if (tutorial_step_dialog) {
+		tutorial_step_dialog->popup_centered();
+	}
 }
 
 // ここまで tutorial_prompt 追加
@@ -9643,8 +9737,21 @@ EditorNode::EditorNode() {
 	gui_base->add_child(tutorial_dimmer);
 	tutorial_dimmer->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	tutorial_dimmer->set_mouse_filter(Control::MOUSE_FILTER_IGNORE); // 今回は操作ブロックしない
-	tutorial_dimmer->set_color(Color(0, 0, 0, 0.6));
+	tutorial_dimmer->set_color(Color(0, 0, 0, 0.8));
 	tutorial_dimmer->hide();
+
+	auto setup_tutorial_dimmer_part = [&](ColorRect *&r_dimmer_part) {
+		r_dimmer_part = memnew(ColorRect);
+		gui_base->add_child(r_dimmer_part);
+		r_dimmer_part->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
+		r_dimmer_part->set_color(Color(0, 0, 0, 0.8));
+		r_dimmer_part->hide();
+	};
+
+	setup_tutorial_dimmer_part(tutorial_dimmer_top);
+	setup_tutorial_dimmer_part(tutorial_dimmer_bottom);
+	setup_tutorial_dimmer_part(tutorial_dimmer_left);
+	setup_tutorial_dimmer_part(tutorial_dimmer_right);
 	// ここまで tutorial_prompt 追加
 
 	save_confirmation = memnew(ConfirmationDialog);
