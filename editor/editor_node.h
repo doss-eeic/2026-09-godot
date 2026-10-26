@@ -597,7 +597,7 @@ private:
 	int tutorial_current_step = 0;
 	int tutorial_current_entry = -1;
 
-	void _start_tutorial(int p_entry);
+	void _start_tutorial(int p_entry, bool p_full_course = false);
 	void _update_tutorial_step_dialog();
 	void _tutorial_next_step();
 	void _tutorial_dialog_custom_action(const String &p_action);

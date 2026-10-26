@@ -232,8 +232,28 @@ help_tutorial_menu->clear(false);
 
 これらの追加したコードと、既存のAPIにより、Helpメニューにtutorialの各項目を追加することができました。
 
-## 説明文を共通のものにする
-ここでは、初回起動時の確認画面において`Yes`を選択した場合の説明文と、Helpメニューのチュートリアルにおける第一項目を選択した場合の説明文を共通のものにするという実装をしました。こちらは`Yes`を押した際に呼ばれる`_tutorial_prompt_confirmed`において、`HELP_TUTORIAL_OVERVIEW`の処理を実行することで、共通した説明文が表示されるようになりました。同様にして、ボタンを押した際に次の説明へと移れるようになっています。
+## 初回起動時のYesを押したときのみ全体コースを開始する
+ここでは、初回起動時の確認画面で`Yes`を選んだときに、Overviewだけで終わらず、チュートリアル全体を連続表示する実装を追加しました。実装の中心は`_start_tutorial()`です。
+
+`_tutorial_prompt_confirmed()`では
+```cpp
+_start_tutorial(HELP_TUTORIAL_OVERVIEW, true);
+```
+を呼び出し、`full_course = true`のときだけ
+
+- Overview
+- Scene and Node Basics
+- Adding and Editing Nodes
+- Saving and Running a Scene
+- Script Basics
+
+の順で`tutorial_steps`へ連結して積むようにしました。
+
+一方で、`Help > Tutorial`からの起動はこれまでどおり各項目ごとに
+```cpp
+_start_tutorial(HELP_TUTORIAL_..., false)
+```
+として扱われるため、単体セクションだけが表示されます。
 
 ## 画面を暗転させる
 ### コードの特定

@@ -4059,16 +4059,16 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 
 		} break;
 		case HELP_TUTORIAL_SCENE_AND_NODE: {
-			show_warning(TTR("this is tutorial scene."), TTR("Editor Tutorial"));
+			_start_tutorial(HELP_TUTORIAL_SCENE_AND_NODE);
 		} break;
 		case HELP_TUTORIAL_ADD_AND_EDIT_NODE: {
-			show_warning(TTR("Tutorial placeholder: Adding and editing nodes will be added in the next step."), TTR("Editor Tutorial"));
+			_start_tutorial(HELP_TUTORIAL_ADD_AND_EDIT_NODE);
 		} break;
 		case HELP_TUTORIAL_SAVE_AND_RUN: {
-			show_warning(TTR("Tutorial placeholder: Saving and running a scene will be added in the next step."), TTR("Editor Tutorial"));
+			_start_tutorial(HELP_TUTORIAL_SAVE_AND_RUN);
 		} break;
 		case HELP_TUTORIAL_SCRIPT_BASICS: {
-			show_warning(TTR("Tutorial placeholder: Script basics will be added in the next step."), TTR("Editor Tutorial"));
+			_start_tutorial(HELP_TUTORIAL_SCRIPT_BASICS);
 		} break;
 		// ここまで tutorial_prompt 追加
 	}
@@ -7037,7 +7037,7 @@ void EditorNode::_tutorial_prompt_confirmed() {
 	EditorSettings::get_singleton()->set_setting("tutorial/initial_prompt_answered", true);
 	EditorSettings::save();
 
-	_start_tutorial(HELP_TUTORIAL_OVERVIEW);
+	_start_tutorial(HELP_TUTORIAL_OVERVIEW, true);
 }
 
 void EditorNode::_tutorial_prompt_canceled() {
@@ -7047,7 +7047,7 @@ void EditorNode::_tutorial_prompt_canceled() {
 
 }
 
-void EditorNode::_start_tutorial(int p_entry) {
+void EditorNode::_start_tutorial(int p_entry, bool p_full_course) {
 	if (!tutorial_step_dialog) {
 		return;
 	}
@@ -7056,19 +7056,80 @@ void EditorNode::_start_tutorial(int p_entry) {
 	tutorial_current_step = 0;
 	tutorial_current_entry = p_entry;
 
-	switch (p_entry) {
-		case HELP_TUTORIAL_OVERVIEW: {
-			tutorial_steps.push_back(TTR("Welcome to the Editor Tutorial."));
-			tutorial_steps.push_back(TTR("Scene dock: Build your scene tree (parent/child nodes)."));
-			tutorial_steps.push_back(TTR("Inspector: Edit properties of the selected node or resource."));
-			tutorial_steps.push_back(TTR("FileSystem dock: Browse project files under res://."));
-			tutorial_steps.push_back(TTR("2D / 3D / Script tabs: Switch workspaces."));
-			tutorial_steps.push_back(TTR("Play buttons: Run the current scene or the main scene."));
-		} break;
+	auto append_steps_for_entry = [&](int p_section, bool p_include_next_hint) {
+		switch (p_section) {
+			case HELP_TUTORIAL_OVERVIEW: {
+				tutorial_steps.push_back(TTR("Welcome to the Editor Tutorial."));
+				tutorial_steps.push_back(TTR("Scene dock: Build your scene tree (parent/child nodes)."));
+				tutorial_steps.push_back(TTR("Inspector: Edit properties of the selected node or resource."));
+				tutorial_steps.push_back(TTR("FileSystem dock: Browse project files under res://."));
+				tutorial_steps.push_back(TTR("2D / 3D / Script tabs: Switch workspaces."));
+				tutorial_steps.push_back(TTR("Play buttons: Run the current scene or the main scene."));
+				if (p_include_next_hint) {
+					tutorial_steps.push_back(TTR("Next step: Help > Tutorial > Scene and Node Basics."));
+				}
+			} break;
 
-		default: {
-			tutorial_steps.push_back(TTR("Tutorial content will be added in the next step."));
-		} break;
+			case HELP_TUTORIAL_SCENE_AND_NODE: {
+				tutorial_steps.push_back(TTR("A scene is a saved collection of nodes."));
+				tutorial_steps.push_back(TTR("A node is one building block in the scene tree."));
+				tutorial_steps.push_back(TTR("Parent-child relationships define structure and transform inheritance."));
+				tutorial_steps.push_back(TTR("Open the Scene dock to inspect and reorganize the tree."));
+				tutorial_steps.push_back(TTR("Try selecting a node and watch how the Inspector content changes."));
+				if (p_include_next_hint) {
+					tutorial_steps.push_back(TTR("Next step: Help > Tutorial > Adding and Editing Nodes."));
+				}
+			} break;
+
+			case HELP_TUTORIAL_ADD_AND_EDIT_NODE: {
+				tutorial_steps.push_back(TTR("Use the + button in the Scene dock to add a node."));
+				tutorial_steps.push_back(TTR("Choose a node type, then confirm to create it in the tree."));
+				tutorial_steps.push_back(TTR("Select the new node and edit its properties in the Inspector."));
+				tutorial_steps.push_back(TTR("Reorder or reparent nodes in the Scene dock to change hierarchy."));
+				tutorial_steps.push_back(TTR("Create input actions in Project Settings > Input Map when needed."));
+				if (p_include_next_hint) {
+					tutorial_steps.push_back(TTR("Next step: Help > Tutorial > Saving and Running a Scene."));
+				}
+			} break;
+
+			case HELP_TUTORIAL_SAVE_AND_RUN: {
+				tutorial_steps.push_back(TTR("Save your scene with Ctrl+S (or Command+S on macOS)."));
+				tutorial_steps.push_back(TTR("Set a Main Scene in Project Settings so the Play button knows what to run."));
+				tutorial_steps.push_back(TTR("Use Run Current Scene or Run Project from the top toolbar."));
+				tutorial_steps.push_back(TTR("Stop the running game to return to the editor and continue editing."));
+				tutorial_steps.push_back(TTR("If run fails, check errors in the Output panel first."));
+				if (p_include_next_hint) {
+					tutorial_steps.push_back(TTR("Next step: Help > Tutorial > Script Basics."));
+				}
+			} break;
+
+			case HELP_TUTORIAL_SCRIPT_BASICS: {
+				tutorial_steps.push_back(TTR("Attach a script to a selected node from the Inspector."));
+				tutorial_steps.push_back(TTR("Use _physics_process(delta) for frame-by-frame movement updates."));
+				tutorial_steps.push_back(TTR("Read input actions with Input.is_action_pressed()."));
+				tutorial_steps.push_back(TTR("Connect signals to react to events instead of polling everything."));
+				tutorial_steps.push_back(TTR("Use the debugger and print logs to verify runtime behavior."));
+				tutorial_steps.push_back(TTR("Tutorial complete. You can reopen any section from Help > Tutorial."));
+			} break;
+
+			default: {
+				tutorial_steps.push_back(TTR("Tutorial content will be added in the next step."));
+			} break;
+		}
+	};
+
+	if (p_full_course && p_entry == HELP_TUTORIAL_OVERVIEW) {
+		append_steps_for_entry(HELP_TUTORIAL_OVERVIEW, false);
+		tutorial_steps.push_back(TTR("Section: Scene and Node Basics"));
+		append_steps_for_entry(HELP_TUTORIAL_SCENE_AND_NODE, false);
+		tutorial_steps.push_back(TTR("Section: Adding and Editing Nodes"));
+		append_steps_for_entry(HELP_TUTORIAL_ADD_AND_EDIT_NODE, false);
+		tutorial_steps.push_back(TTR("Section: Saving and Running a Scene"));
+		append_steps_for_entry(HELP_TUTORIAL_SAVE_AND_RUN, false);
+		tutorial_steps.push_back(TTR("Section: Script Basics"));
+		append_steps_for_entry(HELP_TUTORIAL_SCRIPT_BASICS, false);
+	} else {
+		append_steps_for_entry(p_entry, true);
 	}
 
 	_update_tutorial_step_dialog();
