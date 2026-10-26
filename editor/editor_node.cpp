@@ -7055,6 +7055,7 @@ void EditorNode::_start_tutorial(int p_entry, bool p_full_course) {
 	tutorial_steps.clear();
 	tutorial_current_step = 0;
 	tutorial_current_entry = p_entry;
+	tutorial_full_course = p_full_course && p_entry == HELP_TUTORIAL_OVERVIEW;
 
 	auto append_steps_for_entry = [&](int p_section, bool p_include_next_hint) {
 		switch (p_section) {
@@ -7118,7 +7119,7 @@ void EditorNode::_start_tutorial(int p_entry, bool p_full_course) {
 		}
 	};
 
-	if (p_full_course && p_entry == HELP_TUTORIAL_OVERVIEW) {
+	if (tutorial_full_course) {
 		append_steps_for_entry(HELP_TUTORIAL_OVERVIEW, false);
 		tutorial_steps.push_back(TTR("Section: Scene and Node Basics"));
 		append_steps_for_entry(HELP_TUTORIAL_SCENE_AND_NODE, false);
@@ -7135,6 +7136,125 @@ void EditorNode::_start_tutorial(int p_entry, bool p_full_course) {
 	_update_tutorial_step_dialog();
 	tutorial_step_dialog->reset_size();
 	tutorial_step_dialog->popup_centered();
+}
+
+int EditorNode::_get_tutorial_highlight_target(int p_entry, int p_step) const {
+	if (p_step < 0) {
+		return TUTORIAL_HIGHLIGHT_NONE;
+	}
+
+	if (tutorial_full_course && p_entry == HELP_TUTORIAL_OVERVIEW) {
+		switch (p_step) {
+			case 1:
+			case 8:
+			case 10:
+			case 13:
+			case 14:
+			case 16:
+				return TUTORIAL_HIGHLIGHT_SCENE_DOCK;
+			case 2:
+			case 11:
+			case 15:
+			case 25:
+				return TUTORIAL_HIGHLIGHT_INSPECTOR_DOCK;
+			case 3:
+				return TUTORIAL_HIGHLIGHT_FILESYSTEM_DOCK;
+			case 4:
+				return TUTORIAL_HIGHLIGHT_MAIN_SCREEN_TABS;
+			case 5:
+			case 21:
+				return TUTORIAL_HIGHLIGHT_RUN_BAR;
+			case 26:
+			case 27:
+			case 28:
+				return TUTORIAL_HIGHLIGHT_SCRIPT_EDITOR;
+			default:
+				return TUTORIAL_HIGHLIGHT_NONE;
+		}
+	}
+
+	switch (p_entry) {
+		case HELP_TUTORIAL_OVERVIEW: {
+			switch (p_step) {
+				case 1:
+					return TUTORIAL_HIGHLIGHT_SCENE_DOCK;
+				case 2:
+					return TUTORIAL_HIGHLIGHT_INSPECTOR_DOCK;
+				case 3:
+					return TUTORIAL_HIGHLIGHT_FILESYSTEM_DOCK;
+				case 4:
+					return TUTORIAL_HIGHLIGHT_MAIN_SCREEN_TABS;
+				case 5:
+					return TUTORIAL_HIGHLIGHT_RUN_BAR;
+				default:
+					return TUTORIAL_HIGHLIGHT_NONE;
+			}
+		}
+		case HELP_TUTORIAL_SCENE_AND_NODE: {
+			switch (p_step) {
+				case 1:
+				case 3:
+					return TUTORIAL_HIGHLIGHT_SCENE_DOCK;
+				case 4:
+					return TUTORIAL_HIGHLIGHT_INSPECTOR_DOCK;
+				default:
+					return TUTORIAL_HIGHLIGHT_NONE;
+			}
+		}
+		case HELP_TUTORIAL_ADD_AND_EDIT_NODE: {
+			switch (p_step) {
+				case 0:
+				case 1:
+				case 3:
+					return TUTORIAL_HIGHLIGHT_SCENE_DOCK;
+				case 2:
+					return TUTORIAL_HIGHLIGHT_INSPECTOR_DOCK;
+				default:
+					return TUTORIAL_HIGHLIGHT_NONE;
+			}
+		}
+		case HELP_TUTORIAL_SAVE_AND_RUN: {
+			switch (p_step) {
+				case 2:
+					return TUTORIAL_HIGHLIGHT_RUN_BAR;
+				default:
+					return TUTORIAL_HIGHLIGHT_NONE;
+			}
+		}
+		case HELP_TUTORIAL_SCRIPT_BASICS: {
+			switch (p_step) {
+				case 0:
+					return TUTORIAL_HIGHLIGHT_INSPECTOR_DOCK;
+				case 1:
+				case 2:
+				case 3:
+					return TUTORIAL_HIGHLIGHT_SCRIPT_EDITOR;
+				default:
+					return TUTORIAL_HIGHLIGHT_NONE;
+			}
+		}
+		default:
+			return TUTORIAL_HIGHLIGHT_NONE;
+	}
+}
+
+Control *EditorNode::_resolve_tutorial_highlight_target(int p_target) const {
+	switch (p_target) {
+		case TUTORIAL_HIGHLIGHT_SCENE_DOCK:
+			return SceneTreeDock::get_singleton();
+		case TUTORIAL_HIGHLIGHT_INSPECTOR_DOCK:
+			return InspectorDock::get_singleton();
+		case TUTORIAL_HIGHLIGHT_FILESYSTEM_DOCK:
+			return FileSystemDock::get_singleton();
+		case TUTORIAL_HIGHLIGHT_MAIN_SCREEN_TABS:
+			return editor_main_screen;
+		case TUTORIAL_HIGHLIGHT_RUN_BAR:
+			return project_run_bar;
+		case TUTORIAL_HIGHLIGHT_SCRIPT_EDITOR:
+			return ScriptEditor::get_singleton();
+		default:
+			return nullptr;
+	}
 }
 
 void EditorNode::_update_tutorial_step_dialog() {
@@ -7182,6 +7302,7 @@ void EditorNode::_tutorial_close() {
 	tutorial_steps.clear();
 	tutorial_current_step = 0;
 	tutorial_current_entry = -1;
+	tutorial_full_course = false;
 
 	if (tutorial_dimmer) {
 		tutorial_dimmer->hide();
@@ -7225,17 +7346,8 @@ void EditorNode::_update_tutorial_overlay() {
 		return;
 	}
 
-	Control *highlight_target = nullptr;
-	if (tutorial_current_entry == HELP_TUTORIAL_OVERVIEW) {
-		switch (tutorial_current_step) {
-			case 1:
-				highlight_target = SceneTreeDock::get_singleton();
-				break;
-			case 2:
-				highlight_target = InspectorDock::get_singleton();
-				break;
-		}
-	}
+	const int highlight_target_id = _get_tutorial_highlight_target(tutorial_current_entry, tutorial_current_step);
+	Control *highlight_target = _resolve_tutorial_highlight_target(highlight_target_id);
 
 	if (!highlight_target || !highlight_target->is_visible_in_tree()) {
 		tutorial_dimmer->show();
