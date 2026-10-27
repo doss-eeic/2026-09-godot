@@ -7138,42 +7138,8 @@ void EditorNode::_start_tutorial(int p_entry, bool p_full_course) {
 	tutorial_step_dialog->popup_centered();
 }
 
-int EditorNode::_get_tutorial_highlight_target(int p_entry, int p_step) const {
-	if (p_step < 0) {
-		return TUTORIAL_HIGHLIGHT_NONE;
-	}
-
-	if (tutorial_full_course && p_entry == HELP_TUTORIAL_OVERVIEW) {
-		switch (p_step) {
-			case 1:
-			case 8:
-			case 10:
-			case 13:
-			case 14:
-			case 16:
-				return TUTORIAL_HIGHLIGHT_SCENE_DOCK;
-			case 2:
-			case 11:
-			case 15:
-			case 25:
-				return TUTORIAL_HIGHLIGHT_INSPECTOR_DOCK;
-			case 3:
-				return TUTORIAL_HIGHLIGHT_FILESYSTEM_DOCK;
-			case 4:
-				return TUTORIAL_HIGHLIGHT_MAIN_SCREEN_TABS;
-			case 5:
-			case 21:
-				return TUTORIAL_HIGHLIGHT_RUN_BAR;
-			case 26:
-			case 27:
-			case 28:
-				return TUTORIAL_HIGHLIGHT_SCRIPT_EDITOR;
-			default:
-				return TUTORIAL_HIGHLIGHT_NONE;
-		}
-	}
-
-	switch (p_entry) {
+int EditorNode::_get_tutorial_highlight_target_for_section(int p_section, int p_step) const {
+	switch (p_section) {
 		case HELP_TUTORIAL_OVERVIEW: {
 			switch (p_step) {
 				case 1:
@@ -7192,7 +7158,9 @@ int EditorNode::_get_tutorial_highlight_target(int p_entry, int p_step) const {
 		}
 		case HELP_TUTORIAL_SCENE_AND_NODE: {
 			switch (p_step) {
+				case 0:
 				case 1:
+				case 2:
 				case 3:
 					return TUTORIAL_HIGHLIGHT_SCENE_DOCK;
 				case 4:
@@ -7216,7 +7184,10 @@ int EditorNode::_get_tutorial_highlight_target(int p_entry, int p_step) const {
 		case HELP_TUTORIAL_SAVE_AND_RUN: {
 			switch (p_step) {
 				case 2:
+				case 3:
 					return TUTORIAL_HIGHLIGHT_RUN_BAR;
+				case 4:
+					return TUTORIAL_HIGHLIGHT_BOTTOM_PANEL;
 				default:
 					return TUTORIAL_HIGHLIGHT_NONE;
 			}
@@ -7229,6 +7200,8 @@ int EditorNode::_get_tutorial_highlight_target(int p_entry, int p_step) const {
 				case 2:
 				case 3:
 					return TUTORIAL_HIGHLIGHT_SCRIPT_EDITOR;
+				case 4:
+					return TUTORIAL_HIGHLIGHT_BOTTOM_PANEL;
 				default:
 					return TUTORIAL_HIGHLIGHT_NONE;
 			}
@@ -7236,6 +7209,33 @@ int EditorNode::_get_tutorial_highlight_target(int p_entry, int p_step) const {
 		default:
 			return TUTORIAL_HIGHLIGHT_NONE;
 	}
+}
+
+int EditorNode::_get_tutorial_highlight_target(int p_entry, int p_step) const {
+	if (p_step < 0) {
+		return TUTORIAL_HIGHLIGHT_NONE;
+	}
+
+	if (tutorial_full_course && p_entry == HELP_TUTORIAL_OVERVIEW) {
+		if (p_step <= 5) {
+			return _get_tutorial_highlight_target_for_section(HELP_TUTORIAL_OVERVIEW, p_step);
+		}
+		if (p_step >= 7 && p_step <= 11) {
+			return _get_tutorial_highlight_target_for_section(HELP_TUTORIAL_SCENE_AND_NODE, p_step - 7);
+		}
+		if (p_step >= 13 && p_step <= 17) {
+			return _get_tutorial_highlight_target_for_section(HELP_TUTORIAL_ADD_AND_EDIT_NODE, p_step - 13);
+		}
+		if (p_step >= 19 && p_step <= 23) {
+			return _get_tutorial_highlight_target_for_section(HELP_TUTORIAL_SAVE_AND_RUN, p_step - 19);
+		}
+		if (p_step >= 25 && p_step <= 30) {
+			return _get_tutorial_highlight_target_for_section(HELP_TUTORIAL_SCRIPT_BASICS, p_step - 25);
+		}
+		return TUTORIAL_HIGHLIGHT_NONE;
+	}
+
+	return _get_tutorial_highlight_target_for_section(p_entry, p_step);
 }
 
 Control *EditorNode::_resolve_tutorial_highlight_target(int p_target) const {
@@ -7252,6 +7252,8 @@ Control *EditorNode::_resolve_tutorial_highlight_target(int p_target) const {
 			return project_run_bar;
 		case TUTORIAL_HIGHLIGHT_SCRIPT_EDITOR:
 			return ScriptEditor::get_singleton();
+		case TUTORIAL_HIGHLIGHT_BOTTOM_PANEL:
+			return bottom_panel;
 		default:
 			return nullptr;
 	}
@@ -7262,7 +7264,44 @@ void EditorNode::_update_tutorial_step_dialog() {
 		return;
 	}
 
-	tutorial_step_dialog->set_title(TTR("Editor Tutorial"));
+	auto get_section_title = [](int p_section) {
+		switch (p_section) {
+			case HELP_TUTORIAL_OVERVIEW:
+				return TTR("Overview");
+			case HELP_TUTORIAL_SCENE_AND_NODE:
+				return TTR("Scene and Node Basics");
+			case HELP_TUTORIAL_ADD_AND_EDIT_NODE:
+				return TTR("Adding and Editing Nodes");
+			case HELP_TUTORIAL_SAVE_AND_RUN:
+				return TTR("Saving and Running a Scene");
+			case HELP_TUTORIAL_SCRIPT_BASICS:
+				return TTR("Script Basics");
+			default:
+				return String();
+		}
+	};
+
+	int title_section = tutorial_current_entry;
+	if (tutorial_full_course && tutorial_current_entry == HELP_TUTORIAL_OVERVIEW) {
+		if (tutorial_current_step <= 5) {
+			title_section = HELP_TUTORIAL_OVERVIEW;
+		} else if (tutorial_current_step <= 11) {
+			title_section = HELP_TUTORIAL_SCENE_AND_NODE;
+		} else if (tutorial_current_step <= 17) {
+			title_section = HELP_TUTORIAL_ADD_AND_EDIT_NODE;
+		} else if (tutorial_current_step <= 23) {
+			title_section = HELP_TUTORIAL_SAVE_AND_RUN;
+		} else {
+			title_section = HELP_TUTORIAL_SCRIPT_BASICS;
+		}
+	}
+
+	const String section_title = get_section_title(title_section);
+	if (!section_title.is_empty()) {
+		tutorial_step_dialog->set_title(TTR("Editor Tutorial") + ": " + section_title);
+	} else {
+		tutorial_step_dialog->set_title(TTR("Editor Tutorial"));
+	}
 	tutorial_step_dialog->set_text(tutorial_steps[tutorial_current_step]);
 
 	if (tutorial_back_button) {

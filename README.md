@@ -393,6 +393,8 @@ highlight_rect.size.y = MIN(highlight_rect.size.y, overlay_size.y - highlight_re
 ```
 以上により、現在説明されているステップの項目だけが暗転しないので、結果として説明部分の強調が実装できました。
 
+以上でチュートリアル部分は完成です。
+
 # 機能2:初期化ログ
 
 
