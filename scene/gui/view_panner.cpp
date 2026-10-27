@@ -140,17 +140,26 @@ bool ViewPanner::gui_input(const Ref<InputEvent> &p_event, Rect2 p_canvas_rect) 
 		}
 	}
 
-	Ref<InputEventMagnifyGesture> magnify_gesture = p_event;
+	Ref<InputEventMagnifyGesture> magnify_gesture = p_event;	//Pinch gesture
 	if (magnify_gesture.is_valid()) {
-		// Zoom gesture
-		zoom_callback.call(magnify_gesture->get_factor(), magnify_gesture->get_position(), p_event);
+		if(control_scheme == SCROLL_PANS){
+			zoom_callback.call(magnify_gesture->get_factor(), magnify_gesture->get_position(), p_event);	
+		}
+		else{
+			const float pinch_delta = magnify_gesture->get_factor() - 1.0f;
+			if(pinch_delta == 0.f){
+				return true;
+			}
+			pan_callback.call(-Vector2(pinch_delta, pinch_delta) * scroll_speed, p_event);
+		}
 		return true;
 	}
 
 	Ref<InputEventPanGesture> pan_gesture = p_event;
 	if (pan_gesture.is_valid()) {
-		if (pan_gesture->is_ctrl_pressed()) {
-			// Zoom gesture.
+		if(control_scheme == SCROLL_PANS){
+			pan_callback.call(-pan_gesture->get_delta(), p_event);
+		}else{
 			float pan_zoom_factor = 1.02f;
 			float zoom_direction = pan_gesture->get_delta().x - pan_gesture->get_delta().y;
 			if (zoom_direction == 0.f) {
@@ -158,9 +167,8 @@ bool ViewPanner::gui_input(const Ref<InputEvent> &p_event, Rect2 p_canvas_rect) 
 			}
 			float zoom = zoom_direction < 0 ? 1.0 / pan_zoom_factor : pan_zoom_factor;
 			zoom_callback.call(zoom, pan_gesture->get_position(), p_event);
-			return true;
 		}
-		pan_callback.call(-pan_gesture->get_delta(), p_event);
+		return true;
 	}
 
 	Ref<InputEventScreenDrag> screen_drag = p_event;
