@@ -606,9 +606,11 @@ private:
 		TUTORIAL_HIGHLIGHT_MAIN_SCREEN_TABS,
 		TUTORIAL_HIGHLIGHT_RUN_BAR,
 		TUTORIAL_HIGHLIGHT_SCRIPT_EDITOR,
+		TUTORIAL_HIGHLIGHT_BOTTOM_PANEL,
 	};
 
 	void _start_tutorial(int p_entry, bool p_full_course = false);
+	int _get_tutorial_highlight_target_for_section(int p_section, int p_step) const;
 	int _get_tutorial_highlight_target(int p_entry, int p_step) const;
 	Control *_resolve_tutorial_highlight_target(int p_target) const;
 	void _update_tutorial_step_dialog();
