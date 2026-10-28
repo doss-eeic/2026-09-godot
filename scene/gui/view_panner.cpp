@@ -150,7 +150,7 @@ bool ViewPanner::gui_input(const Ref<InputEvent> &p_event, Rect2 p_canvas_rect) 
 			if(pinch_delta == 0.f){
 				return true;
 			}
-			pan_callback.call(-Vector2(pinch_delta, pinch_delta) * scroll_speed, p_event);
+			pan_callback.call(-Vector2(0, pinch_delta) * scroll_speed * 10, p_event);
 		}
 		return true;
 	}
