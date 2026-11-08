@@ -49,7 +49,7 @@ Godotには、調べればたくさんのテキストチュートリアルが出
 ## ズーム設定の環境依存性の解消
 
 ### 目的と背景
-EditorSettingsの項目に/editors/Panning/2D_Editor_Panning_Schemeがあります。これはエディター上で画面の拡大縮小操作をピンチ操作にするかパン操作にするか切り替える項目なのですが、macOS上ではこの設定を切り替えてもピンチ操作がズームに割当らたままになってしまうというバグがあったので、これを修正することが目的です。
+EditorSettingsの項目に/editors/Panning/2D_Editor_Panning_Schemeがあります。マウスパッドを使用する場合、これはエディター上で画面の拡大縮小操作をピンチ操作にするか２本指スワイプ操作にするか切り替える項目なのですが、macOS上ではこの設定を切り替えてもピンチ操作がズームに割当らたままになってしまうというバグがありました。、これを修正することが目的です。
 
 
 
@@ -585,6 +585,123 @@ void AnimationTrackEdit::_menu_selected(int p_index) {
     }
 }
 ```
+
+
+これで機能3は完成です。
+
+# 機能4: ズーム設定の環境依存性の解消
+
+## コード概要
+
+opencodeを使用した結果、`CanvasItemEditor::_gui_input_zoom_or_pan()` メソッドが該当の処理を行っていることが判明したため、ここを起点にデバッガー（gdb）を用いて処理フローの追跡を行いました。コードの流れは以下の通りです。
+
+1. **`_gui_input_view_port()`**: ユーザーからのGUI入力（マウス・キーボード・パッドなど）を一律で受け取る。
+2. **`_gui_input_zoom_or_pan()`**: ホイールによる操作か、パン（視点移動）による操作かの大まかな分岐処理を行う。
+3. **`ViewPanner::gui_input()`**: 実際の入力内容から、ズームすべきかパンすべきかの具体的な判定を行う。
+4. **`_zoom_callback()` / `pan_callback.call()`**: 判定結果に基づき、実際のズーム処理やパン処理を実行する。
+
+## バグの原因
+
+結論からいうと、マウスパッドの入力を処理している箇所に、設定が反映されていないことが原因でした。
+下にコードを示しますが、マウス入力の場合に相当するInputEventMouseButtonのブロックでは、if(control_scheme == SCROLL_PANS)のように、設定項目の値を見て処理を分岐させているのに対し、マウスパッド入力の場合に相当するInputEventMagnify/PanGestrueのブロックでは、control_scehemeを見て分岐する処理が無いことがわかります。なので、修正自体は、マウスパッド入力の処理を行っている箇所にcotrol_schemeを見てズームかパンかを切り替える処理を記述すればバグは解消します。
+
+
+macOSでしかマウスパッド操作のバグが発生しない理由について補足です。環境によって挙動が変わってしまうのは、マウスパッド入力をos側がマウス入力に変換して通知するか、それともマウスパッド入力そのままとして通知するかが分かれているためだと考えられます。その根拠ですが、linux（開発環境参照）、エディタ設定がscroll_zoom、の状態でマウスパッド上のピンチ操作を行った際、is_ctrl_pressed()の値がtrueになっていたことが挙げられます。実際にはctrlキーを押していないわけですから、ピンチ操作がctrlキー＋ホイール回転に変換されて通知されている、ということになるはずです。
+
+```cpp
+
+bool ViewPanner::gui_input(const Ref<InputEvent> &p_event, Rect2 p_canvas_rect) {
+	Ref<InputEventMouseButton> mb = p_event;
+	if (mb.is_valid()) {								//p_eventがマウスボタンのクリック（ホイールも含む）だった場合
+
+		Vector2 scroll_vec;								//本来はこの行でスクロールの程度をベクトルに格納している	
+
+		if (scroll_vec != Vector2() && mb->is_pressed()) {
+			if (control_scheme == SCROLL_PANS) {		//設定がscroll_panのとき
+				if (mb->is_ctrl_pressed()) {			//ctrlキーも押されていた場合
+					/*省略*/
+					zoom_callback.call(zoom, mb->get_position(), p_event);	//ズーム処理の呼び出し
+					return true;
+				} else {								//ホイールの回転のみの場合
+					/*省略*/
+					pan_callback.call(-panning * scroll_speed, p_event);	//パン処理の呼び出し
+					return true;
+				}
+			} else {									//設定がscroll_zoomのとき
+				/*省略: scroll_panのときとは逆で、ctrlありの場合はパン、なしの場合はズーム処理の呼び出しとなる*/
+			}
+		}
+
+		/*省略*/
+	}
+
+	/*省略*/
+
+	//以下がタッチパッド入力
+
+
+	//ピンチ操作だった場合
+	Ref<InputEventMagnifyGesture> magnify_gesture = p_event;
+	if (magnify_gesture.is_valid()) {
+		// Zoom gesture
+		zoom_callback.call(magnify_gesture->get_factor(), magnify_gesture->get_position(), p_event);
+		return true;
+	}
+
+	//２本指スワイプ操作だった場合
+	Ref<InputEventPanGesture> pan_gesture = p_event;
+	if (pan_gesture.is_valid()) {
+		if (pan_gesture->is_ctrl_pressed()) {
+			zoom_callback.call(zoom, pan_gesture->get_position(), p_event);
+			return true;
+		}
+		pan_callback.call(-pan_gesture->get_delta(), p_event);
+	}
+
+	/*省略*/
+}
+
+```
+
+## 修正後のコード
+
+```cpp
+Ref<InputEventMagnifyGesture> magnify_gesture = p_event;	//ピンチ操作が行われた場合
+	if (magnify_gesture.is_valid()) {
+		if(control_scheme == SCROLL_PANS){					//設定がscroll_pansの場合
+			zoom_callback.call(magnify_gesture->get_factor(), magnify_gesture->get_position(), p_event);	//zoom処理	
+		}
+		else{　　　											//設定がscroll_zoomの場合
+			const float pinch_delta = magnify_gesture->get_factor() - 1.0f;
+			if(pinch_delta == 0.f){
+				return true;
+			}
+			pan_callback.call(-Vector2(0, pinch_delta) * scroll_speed * 10, p_event);	//pan処理
+		}
+		return true;
+	}
+
+	Ref<InputEventPanGesture> pan_gesture = p_event;		//２本指スワイプが行われた場合
+	if (pan_gesture.is_valid()) {							
+		if(control_scheme == SCROLL_PANS){					//設定がscroll_pansの場合
+			pan_callback.call(-pan_gesture->get_delta(), p_event);						//pan処理
+		}else{												//設定がscroll_zoomの場合
+
+			float pan_zoom_factor = 1.02f;
+			float zoom_direction = pan_gesture->get_delta().x - pan_gesture->get_delta().y;
+			if (zoom_direction == 0.f) {
+				return true;
+			}
+			float zoom = zoom_direction < 0 ? 1.0 / pan_zoom_factor : pan_zoom_factor;
+			zoom_callback.call(zoom, pan_gesture->get_position(), p_event);				//zoom処理
+		}
+		return true;
+	}
+```
+基本的にはマウスパッド入力のブロックに設定項目を反映した条件分岐を追加しただけになります。入力の程度（どれくらい指を開いたか、どれくらい指をスワイプさせたか）と実際のズーム、パンの程度の変換は既存コードを参考にしつつと実際の操作感からフィードバックしながら調整しました。
+
+
+これで機能4は完成です。
 
 
 # おわりに
