@@ -397,5 +397,108 @@ highlight_rect.size.y = MIN(highlight_rect.size.y, overlay_size.y - highlight_re
 
 # 機能2:初期化ログ
 
+## 用語整理
+この機能の実装過程を説明する上で、ノード、シーン、スクリプトという用語が出てきます。ゲームエンジンを触ったことの無い人からすると初めての概念になると思うので、先に軽く用語を整理しておきます。  
+- ノード：ゲームを構成する最小単位の機能   
+- シーン：ノード・別のシーンの、再利用可能な集合   
+- スクリプト：ノードに付与（アタッチ）し、ノードの機能拡張を行うコード   
+
+
+ノードの機能の例としては、位置情報や画像表示、効果音、キー/マウス入力の通知などです。
+位置情報、画像表示のノードを組み合わせれば、ゲーム内の一つの簡易なキャラクターが作れます。この組み合わせたものがシーンですね。
+さて、そのキャラクターの位置情報のノードに、決まった場所を移動させるスクリプトをアタッチすれば、決まったルートを往復するNPCみたいなものが作れます。
+完成したNPCキャラクターのシーンは使い回しが可能で、同一シーン内に複数のNPCキャラクターシーンを埋め込むことができます。   
+大雑把でいいのでこのあたりの概念を理解しておいてください。
+
+## コード概要
+
+目標としている仕様を実装するためには、ノードの初期化位置と設定項目の指定位置を特定する必要があります。  
+opencode(GPT-5.3 Codex. 以降モデル名略)を使用し、以下のように該当箇所を発見しました。  
+- SceneState::_instantiate() (scene/resources/packed_scene.cpp)   
+- GLOBAL_DEF (core/config/project_settings.h)   
+それぞれ詳細を見ていきます。
+
+### ノード初期化位置
+SceneState::_instantiate()は一つのメソッドでありながら550行程度の規模で実装されています。おおまかな流れとしては、「ノードの生成→生成に成功したらノードの各種プロパティを設定、以上をシーン内のノードの数だけ繰り返す」となっています。もちろん他の処理も混ざっていますが、初期化ログ機能を実装する上ではここまでの理解で十分でした。  
+以下に、コードの流れをコメントとして簡略化し、変更を加えた箇所に焦点を当てたコードを記します。
+
+```cpp
+Node *SceneState::_instantiate(GenEditState p_edit_state, LocalVector<DeferredNodePathProperties> *r_parent_deferred_node_paths) const {
+	
+	/*省略*/
+
+	//コード追記箇所。設定からログ出力の有無のフラグを取得
+	const bool log_init_calls = GLOBAL_GET("debug/settings/gdscript/log_init_calls") &&
+								(Engine::get_singleton()->is_editor_hint() == false);
+
+	for (int i = 0; i < nc; i++) {		//シーン内の全ノードの数だけ回るfor文
+
+		/*省略*/
+		Node *node = nullptr;	//生成されたノードを格納する変数
+		/*ノードの生成処理*/
+
+		if (node) {		//ノードの生成に成功したら
+
+			/*ノードのpropertyの設定*/
+			
+			//コード追記箇所。初期化ログの出力
+			if (log_init_calls) {
+				String node_name = node->get_name();
+				Ref<Script> script = node->get_script();
+				String script_path = script.is_valid() ? script->get_path() : String();
+
+				if(script_path.contains("res://")) {
+					print_line(node_name + " | " + script_path);	
+				}
+			}
+		}
+		/*省略*/
+	}	
+}
+```
+
+ ログを出力する際にノードのシーン内での名称とスクリプトの名称の２つを情報として示したかったので、ノードのプロパティが確定した後にログ出力のコードを記述しています。出力する情報はnode変数から取得しており、get_name()で名称を、get_script()からはnodeにアタッチされているスクリプトを取得可能でした。if(script.path.contains("res://"))は、生成されたノードにスクリプトがアタッチされているかを判別を行っている箇所です。スクリプトは必ず./res以下に配置されるようになっていたので、このような条件判定となっています。  
+
+log_init_callというフラグは、設定項目でログ出力がonになっており、かつシミュレーション中（作成したシーンを実際に動かしている最中）である場合のみtrueとなるよう記述しています。
+
+### 設定項目の変更
+opencodeが発見してくれた「GLOBAL_DEF」はマクロであり、実際に呼び出される関数はグローバル関数の_GLOBAL_DEF(core/config/project_settings.cpp)でした。
+_GLOBAL_DEFでは、シングルトンとして実装されているProjectSettingsのインスタンスを取得し、指定された階層にメニューを追加する機能を担っていました。
+さて、GLOBAL_DEFは基本的にどこからでも呼び出せるのですが、呼び出している箇所はなるべく固めた方が良いと考え、ノード初期化位置のコードがあった./scene/ディレクトリ以下を対象に以下のコマンドで検索をかけました。
+```bash
+grep -rn "GLOBAL_DEF" ./scene/
+``` 
+その結果、./scene/main/scene_tree.cppと./scene/register_scene_types.cppの２つのファイルで主にGLOBAL_DEFが呼び出されていることが判明しました。
+今回は./scene/register_scene_types.cpp内に以下のように追加しました。
+```cpp
+void register_scene_types()
+{
+	/*省略*/
+	for (int i = 0; i < 32; i++) {
+		GLOBAL_DEF_BASIC(vformat("%s/layer_%d", PNAME("layer_names/2d_physics"), i + 1), "");
+#ifndef NAVIGATION_2D_DISABLED
+		GLOBAL_DEF_BASIC(vformat("%s/layer_%d", PNAME("layer_names/2d_navigation"), i + 1), "");
+#endif // NAVIGATION_2D_DISABLED
+		GLOBAL_DEF_BASIC(vformat("%s/layer_%d", PNAME("layer_names/3d_physics"), i + 1), "");
+#ifndef NAVIGATION_3D_DISABLED
+		GLOBAL_DEF_BASIC(vformat("%s/layer_%d", PNAME("layer_names/3d_navigation"), i + 1), "");
+#endif // NAVIGATION_3D_DISABLED
+	}
+
+	for (int i = 0; i < 32; i++) {
+		GLOBAL_DEF_BASIC(vformat("%s/layer_%d", PNAME("layer_names/avoidance"), i + 1), "");
+	}
+
+	//コード追記箇所
+	GLOBAL_DEF("debug/settings/gdscript/log_init_calls", false);
+
+	/*省略*/
+}
+```
+register_scene_types()内の、特にGLOBAL_DEF_BASIC(_GLOBAL_DEFをGLOBAL_DEFとは異なる引数で呼び出すマクロ)が集中している箇所にコードを追記しています（下から4行目）。"debug/settings/gdscript/log_init_calls"は追加する設定の階層を指定しており、falseを渡しているのは、設定変更時に再起動を要求する必要が無いことを示しています。
+
+
+以上で初期化ログ出力機能は完成です。
+
 
 # おわりに
